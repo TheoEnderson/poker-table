@@ -52,3 +52,31 @@ export interface InitHandParams {
   readonly previousDealerSeat?: number | null;
 }
 
+export type BettingActionType = 'fold' | 'check' | 'call';
+
+export interface PlayerAction {
+  readonly playerId: string;
+  readonly type: BettingActionType;
+}
+
+export type RoundStatus = 'active' | 'completed' | 'hand_ended_by_fold';
+
+export interface RoundPlayer extends HandPlayer {
+  readonly folded: boolean;
+}
+
+export interface RoundState {
+  readonly players: readonly RoundPlayer[];
+  readonly currentBet: number;
+  readonly pot: number;
+  readonly currentActorId: string | null;
+  readonly playersToAct: readonly string[];
+  readonly status: RoundStatus;
+  readonly smallBlind: number;
+  readonly bigBlind: number;
+  readonly dealerSeat: number;
+  readonly smallBlindSeat: number;
+  readonly bigBlindSeat: number;
+  readonly handState: HandState;
+}
+

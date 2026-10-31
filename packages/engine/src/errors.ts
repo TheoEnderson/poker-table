@@ -6,7 +6,14 @@ export type EngineErrorCode =
   | 'DUPLICATE_SEAT'
   | 'INVALID_BLINDS'
   | 'INSUFFICIENT_PLAYERS'
-  | 'INVALID_DEALER';
+  | 'INVALID_DEALER'
+  | 'ROUND_NOT_ACTIVE'
+  | 'OUT_OF_TURN'
+  | 'INVALID_ACTION'
+  | 'CANNOT_CHECK'
+  | 'PLAYER_NOT_FOUND'
+  | 'PLAYER_FOLDED'
+  | 'PLAYER_ALL_IN';
 
 export class EngineError extends Error {
   constructor(
