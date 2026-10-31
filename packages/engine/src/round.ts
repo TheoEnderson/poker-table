@@ -11,7 +11,7 @@ import type {
  * Devolve a parcela de uma contribuição que nenhum outro jogador igualou.
  * Executada somente quando a rodada termina.
  */
-function settleUncalled(state: RoundState): RoundState {
+export function settleUncalled(state: RoundState): RoundState {
   if (state.status === 'active') return state;
 
   const ordered = [...state.players].sort(

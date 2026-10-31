@@ -84,3 +84,26 @@ export interface RoundState {
   readonly handState: HandState;
 }
 
+export type PotType = 'main' | 'side';
+
+export interface Pot {
+  readonly id: string;
+  readonly type: PotType;
+  readonly index: number;
+  readonly amount: number;
+  readonly contributors: readonly string[];
+  readonly eligiblePlayers: readonly string[];
+  readonly contributorIds?: readonly string[];
+  readonly eligiblePlayerIds?: readonly string[];
+}
+
+export interface PotPlayerInput {
+  readonly id: string;
+  readonly committed: number;
+  readonly folded?: boolean;
+}
+
+export type BuildPotsInput =
+  | RoundState
+  | readonly PotPlayerInput[]
+  | { readonly players: readonly PotPlayerInput[] };

@@ -6,4 +6,5 @@ export * from './blinds.js';
 export * from './action-order.js';
 export * from './hand.js';
 export * from './round.js';
+export * from './pot.js';
 
