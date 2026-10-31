@@ -409,3 +409,5 @@ export function handAllIn(state: HandFlowState, playerId?: string): HandFlowStat
   }
   return applyHandAction(state, { playerId: actor, type: 'all-in' });
 }
+
+export { settleHandFlow } from './settlement.js';
