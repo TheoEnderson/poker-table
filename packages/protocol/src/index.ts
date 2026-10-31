@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const PROTOCOL_VERSION = 1 as const;
+// eslint-disable-next-line no-control-regex -- Rejeita caracteres de controle nos nomes dos jogadores.
 export const displayName = z.string().trim().min(1, 'Informe um nome.').max(32, 'Use até 32 caracteres.').regex(/^[^\u0000-\u001f\u007f]+$/, 'Nome inválido.');
 export const roomCode = z.string().trim().toUpperCase().regex(/^[A-HJ-NP-Z2-9]{6}$/, 'O código tem seis letras ou números.');
 const chips = z.number().int().min(1).max(1_000_000);

@@ -34,8 +34,8 @@ test('two browsers create, join, synchronize, rename and recover a seat without 
   try {
     await other.goto(`/join/${code}`);
     await other.getByLabel('Seu nome', { exact: true }).fill('Bia');
-    await expect(other.getByLabel('Posição', { exact: true })).toBeVisible();
-    await other.getByLabel('Posição', { exact: true }).selectOption('2');
+    await expect(other.getByRole('combobox', { name: 'Posição', exact: true })).toBeVisible();
+    await other.getByRole('combobox', { name: 'Posição', exact: true }).selectOption('2');
     await other.getByRole('button', { name: 'Entrar na mesa', exact: true }).click();
     await expect(other.getByText('Conectado · mesa sincronizada')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Posição 2, Bia, conectado', exact: true })).toBeVisible();

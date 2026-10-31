@@ -51,6 +51,7 @@ export function createApplication(options: AppOptions) {
       res.sendFile(resolve(options.webDirectory!, 'index.html'));
     });
   }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express exige quatro parâmetros no error handler.
   const errors: ErrorRequestHandler = (error, _req, res, _next) => {
     const malformed = error instanceof SyntaxError || (typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large');
     const reply = failure(malformed ? new RoomError('INVALID_INPUT', 'JSON inválido ou mensagem muito grande.') : error);

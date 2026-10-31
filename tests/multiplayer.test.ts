@@ -97,15 +97,61 @@ it('revokes a participant on definitive leave and broadcasts the freed seat', as
 });
 
 it('automatically reconnects to a restarted server using persisted SQLite credentials', async () => {
-  const h = await host(), g = await admit(`/api/rooms/${h.room.code}/join`, { name: 'Bia', seat: 2 });
-  const socket = await connect(g.credentials), port = Number(new URL(base).port);
+  const h = await host();
+  const g = await admit(`/api/rooms/${h.room.code}/join`, {
+    name: 'Bia',
+    seat: 2
+  });
+
+  const socket = await connect(g.credentials);
+  const port = Number(new URL(base).port);
+
+  // Aguarda uma desconexão real seguida de uma nova conexão.
+  // Registrar os listeners antes do encerramento evita condições de corrida.
+  const reconnected = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('O cliente não reconectou em 5 segundos.'));
+    }, 5000);
+
+    socket.once('disconnect', () => {
+      socket.once('connect', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+  });
+
   await app.close();
-  app = createApplication({ databasePath: join(dir, 'test.sqlite') });
+
+  app = createApplication({
+    databasePath: join(dir, 'test.sqlite')
+  });
+
   await app.listen(port, '127.0.0.1');
-  await waitFor(() => socket.connected);
-  expect((await sync(socket)).players.find(p => p.id === g.credentials.playerId)).toMatchObject({ name: 'Bia', seat: 2, connected: true });
+
+  // Verifica a reconexão após o reinício do servidor.
+  await reconnected;
+
+  const state = await sync(socket);
+
+  expect(
+    state.players.find(p => p.id === g.credentials.playerId)
+  ).toMatchObject({
+    name: 'Bia',
+    seat: 2,
+    connected: true
+  });
+
+  // Verifica se as credenciais administrativas também foram preservadas.
   const admin = await connect(h.credentials);
-  expect(await send(admin, { type: 'close-room', commandId: randomUUID(), expectedRevision: (await sync(admin)).revision })).toMatchObject({ ok: true });
+
+  expect(
+    await send(admin, {
+      type: 'close-room',
+      commandId: randomUUID(),
+      expectedRevision: (await sync(admin)).revision
+    })
+  ).toMatchObject({ ok: true });
 });
 
 it('serves health and rejects malformed JSON, cross-origin and oversized HTTP requests', async () => {
