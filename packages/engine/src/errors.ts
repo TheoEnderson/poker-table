@@ -17,7 +17,12 @@ export type EngineErrorCode =
   | 'INSUFFICIENT_CHIPS'
   | 'PLAYER_NOT_FOUND'
   | 'PLAYER_FOLDED'
-  | 'PLAYER_ALL_IN';
+  | 'PLAYER_ALL_IN'
+  | 'ALREADY_SETTLED'
+  | 'INELIGIBLE_WINNER'
+  | 'MISSING_DECISION'
+  | 'DUPLICATE_DECISION'
+  | 'INVALID_POT';
 
 export class EngineError extends Error {
   constructor(

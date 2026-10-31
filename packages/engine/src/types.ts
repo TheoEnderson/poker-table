@@ -107,3 +107,53 @@ export type BuildPotsInput =
   | RoundState
   | readonly PotPlayerInput[]
   | { readonly players: readonly PotPlayerInput[] };
+
+export interface PotWinnerDecision {
+  readonly potId: string;
+  readonly winnerIds?: readonly string[];
+  readonly winners?: readonly string[];
+}
+
+export interface PlayerPotAward {
+  readonly playerId: string;
+  readonly amount: number;
+}
+
+export interface PotAward {
+  readonly potId: string;
+  readonly potType: PotType;
+  readonly potIndex: number;
+  readonly potAmount: number;
+  readonly winners: readonly string[];
+  readonly awards: readonly PlayerPotAward[];
+}
+
+export interface SettledPlayer {
+  readonly id: string;
+  readonly seat: number;
+  readonly chips: number;
+  readonly committed: number;
+  readonly isAllIn: boolean;
+  readonly folded: boolean;
+  readonly name?: string;
+  readonly totalWon: number;
+  readonly previousChips: number;
+}
+
+export interface SettlementSummary {
+  readonly totalDistributed: number;
+  readonly playerAwards: readonly PlayerPotAward[];
+}
+
+export interface SettlementResult {
+  readonly status: 'settled';
+  readonly isSettled: true;
+  readonly pot: 0;
+  readonly originalPot: number;
+  readonly players: readonly SettledPlayer[];
+  readonly pots: readonly Pot[];
+  readonly potAwards: readonly PotAward[];
+  readonly summary: SettlementSummary;
+  readonly handState: HandState;
+  readonly dealerSeat: number;
+}
