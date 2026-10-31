@@ -103,8 +103,43 @@ export interface PotPlayerInput {
   readonly folded?: boolean;
 }
 
+export type Street = 'preflop' | 'flop' | 'turn' | 'river';
+
+export type HandFlowStatus = 'in_progress' | 'hand_ended_by_fold' | 'showdown';
+
+export interface HandFlowPlayer {
+  readonly id: string;
+  readonly seat: number;
+  readonly chips: number;
+  readonly roundCommitted: number;
+  readonly totalCommitted: number;
+  readonly committed: number;
+  readonly isAllIn: boolean;
+  readonly folded: boolean;
+  readonly baseCommitted: number;
+  readonly name?: string;
+}
+
+export interface HandFlowState {
+  readonly street: Street;
+  readonly currentRound: RoundState;
+  readonly players: readonly HandFlowPlayer[];
+  readonly dealerSeat: number;
+  readonly smallBlindSeat: number;
+  readonly bigBlindSeat: number;
+  readonly smallBlind: number;
+  readonly bigBlind: number;
+  readonly pot: number;
+  readonly status: HandFlowStatus;
+  readonly handState: HandState;
+  readonly currentActorId: string | null;
+  readonly playersToAct: readonly string[];
+  readonly survivorId?: string | null;
+}
+
 export type BuildPotsInput =
   | RoundState
+  | HandFlowState
   | readonly PotPlayerInput[]
   | { readonly players: readonly PotPlayerInput[] };
 

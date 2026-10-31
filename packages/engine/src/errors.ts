@@ -22,7 +22,10 @@ export type EngineErrorCode =
   | 'INELIGIBLE_WINNER'
   | 'MISSING_DECISION'
   | 'DUPLICATE_DECISION'
-  | 'INVALID_POT';
+  | 'INVALID_POT'
+  | 'CANNOT_ADVANCE_STREET'
+  | 'HAND_ALREADY_COMPLETED'
+  | 'INVALID_STREET';
 
 export class EngineError extends Error {
   constructor(

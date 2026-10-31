@@ -24,9 +24,38 @@ export function buildPots(input: BuildPotsInput): readonly Pot[] {
   let rawPlayers: readonly PotPlayerInput[];
   let expectedPot: number | null = null;
 
-  // Identifica se a entrada é um RoundState, um array de jogadores ou um objeto com { players }
+  // Identifica se a entrada é um RoundState, HandFlowState, um array de jogadores ou um objeto com { players }
   if (Array.isArray(input)) {
     rawPlayers = input;
+  } else if ('street' in input && 'players' in input && Array.isArray(input.players)) {
+    const flow = input as unknown as {
+      street: string;
+      status: string;
+      pot: number;
+      currentRound: { status: string };
+      players: readonly { id: string; totalCommitted?: number; committed: number; folded?: boolean }[];
+    };
+
+    if (flow.status === 'in_progress' && flow.currentRound?.status === 'active') {
+      throw new EngineError(
+        'INVALID_INPUT',
+        'Não é possível construir potes definitivos durante uma rodada ativa.',
+      );
+    }
+
+    if (!Number.isSafeInteger(flow.pot) || flow.pot < 0) {
+      throw new EngineError(
+        'INVALID_INPUT',
+        'Valor total do pote inválido.',
+      );
+    }
+
+    rawPlayers = flow.players.map(p => ({
+      id: p.id,
+      committed: p.totalCommitted ?? p.committed,
+      folded: p.folded,
+    }));
+    expectedPot = flow.pot;
   } else if ('players' in input && Array.isArray(input.players)) {
     if ('status' in input && 'pot' in input) {
       const round = input as RoundState;

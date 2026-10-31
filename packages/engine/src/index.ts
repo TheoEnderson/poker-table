@@ -8,4 +8,5 @@ export * from './hand.js';
 export * from './round.js';
 export * from './pot.js';
 export * from './settlement.js';
+export * from './hand-flow.js';
 
