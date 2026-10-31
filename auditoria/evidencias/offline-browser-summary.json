@@ -1,0 +1,22 @@
+{
+  "browser": "Chrome/156.0.8078.47",
+  "conditions": "fresh isolated browser contexts; static production build on loopback; external DNS blocked; 35 second wait after join",
+  "room": "DRG4GB",
+  "host": "Waiting for players\nDRG4GB\nTAP TO COPY\nPLAYERS (1 / 8)\nA\nAuditHost\nHOST\nYOU\nShare the code or QR to invite players\nGame settings\nNeed at least 2 players\nLeave\nNew version ready\nReload\n×",
+  "guest": "Connecting…\nFinding the table over the public relay — this can take 10–30 seconds.\nDRG4GB\nTAP TO COPY\nPLAYERS (1)\nA\nAuditGuest\nYOU\nLeave",
+  "websocketUrls": [
+    "wss://broker-cn.emqx.io:8084/mqtt",
+    "wss://broker.emqx.io:8084/mqtt",
+    "wss://public.cloud.shiftr.io/",
+    "wss://test.mosquitto.org:8081/mqtt"
+  ],
+  "eventCounts": {
+    "Network.loadingFailed": 6,
+    "Network.webSocketCreated": 98,
+    "Network.webSocketFrameError": 93,
+    "Network.webSocketClosed": 93
+  },
+  "websocketErrors": [
+    "Error in connection establishment: net::ERR_NAME_NOT_RESOLVED"
+  ]
+}

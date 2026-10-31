@@ -1,0 +1,69 @@
+Downloading https://services.gradle.org/distributions/gradle-9.7.1-bin.zip
+..............10%..............20%...............30%..............40%...............50%..............60%...............70%..............80%..............90%...............100%
+
+Welcome to Gradle 9.7.1!
+
+Here are the highlights of this release:
+ - Isolated Projects graduates to incubating
+ - Broader Configuration Cache compatibility
+ - Resilient Sync helps you fix broken builds
+ - More source locations in problem reports
+
+For more details see https://docs.gradle.org/9.7.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+No Android SDK found (ANDROID_HOME / local.properties): skipping :app.
+> Task :server:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :server:processResources
+> Task :server:processTestResources NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileKotlin
+> Task :core:compileJava NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+> Task :core:test
+> Task :server:compileKotlin
+> Task :server:compileJava NO-SOURCE
+> Task :server:classes
+> Task :server:jar
+
+> Task :server:compileTestKotlin
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:103:42 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:104:36 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:106:69 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:242:35 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:243:30 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+w: file:///tmp/poker-audit-20261031/tablechips/server/src/test/kotlin/io/github/tablechips/server/TableClientTest.kt:246:67 Unnecessary non-null assertion (!!) on a non-null receiver of type 'TableState'.
+
+> Task :server:compileTestJava NO-SOURCE
+> Task :server:testClasses UP-TO-DATE
+
+> Task :server:test
+
+OrderingTest > a client is never handed a revision older than one it already has FAILED
+    kotlinx.coroutines.TimeoutCancellationException at CoroutineDebugging.kt:42
+        Caused by: kotlinx.coroutines.TimeoutCancellationException at Timeout.kt:281
+
+57 tests completed, 1 failed
+
+> Task :server:test FAILED
+
+[Incubating] Problems report is available at: file:///tmp/poker-audit-20261031/tablechips/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':server:test'.
+> There were failing tests. See the report at: file:///tmp/poker-audit-20261031/tablechips/server/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 2m 58s
+9 actionable tasks: 9 executed

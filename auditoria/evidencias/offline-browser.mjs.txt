@@ -1,0 +1,34 @@
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { readFile, writeFile } from 'node:fs/promises';
+import { extname } from 'node:path';
+const base='/tmp/poker-audit-20261031';
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+const server=createServer(async(req,res)=>{
+ try { const path=new URL(req.url,'http://localhost').pathname; const file=path==='/'?'index.html':path.slice(1);
+ if(file.includes('..')||file.endsWith('.php')) {res.writeHead(404).end();return;}
+ const body=await readFile(base+'/PocketPoker/dist/'+file);res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.svg':'image/svg+xml'})[extname(file)]||'application/octet-stream');res.end(body);
+ }catch{res.writeHead(404).end();}
+});
+await new Promise(r=>server.listen(18083,'127.0.0.1',r));
+const chrome=spawn('/usr/bin/google-chrome',['--headless=new','--no-sandbox','--disable-gpu','--disable-background-networking','--no-first-run','--no-proxy-server','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost','--remote-debugging-port=19222','--user-data-dir='+base+'/chrome-audit','about:blank'],{stdio:'ignore'});
+let seq=0;const pending=new Map();const events=[];let ws;
+try {
+ let info;for(let i=0;i<50;i++){try{info=await(await fetch('http://127.0.0.1:19222/json/version')).json();break;}catch{await pause(200);}}
+ if(!info)throw Error('Chrome failed to start');
+ ws=new WebSocket(info.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}));
+ ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m.result);}else if(m.method?.startsWith('Network.webSocket')||m.method==='Network.loadingFailed'||m.method==='Runtime.exceptionThrown')events.push(m);});
+ const call=(method,params={},sessionId)=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params,sessionId}));});
+ const evaluate=async(s,expression)=>(await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},s)).result.value;
+ async function page(id){const {browserContextId}=await call('Target.createBrowserContext');const {targetId}=await call('Target.createTarget',{url:'about:blank',browserContextId});const {sessionId:s}=await call('Target.attachToTarget',{targetId,flatten:true});await call('Network.enable',{},s);await call('Runtime.enable',{},s);await call('Page.enable',{},s);
+ await call('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('pocketpoker:player',JSON.stringify({id:${JSON.stringify(id)},name:${JSON.stringify(id)},avatarColor:'#123'}));localStorage.setItem('pocketpoker:install-dismissed','1');`},s);
+ await call('Page.navigate',{url:'http://127.0.0.1:18083/'},s);await pause(1200);return s;}
+ const click=(s,label)=>evaluate(s,`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!b) return [...document.querySelectorAll('button')].map(b=>b.textContent);b.click();return true})()`);
+ const host=await page('AuditHost');await click(host,'Host a game');await pause(200);
+ const hostButtons=await evaluate(host,"[...document.querySelectorAll('button')].map(b=>b.textContent.trim())");
+ const createLabel=hostButtons.find(x=>/create/i.test(x));if(!createLabel)throw Error('Create button missing: '+JSON.stringify(hostButtons));await click(host,createLabel);await pause(1200);
+ const code=await evaluate(host,"document.querySelector('.pp-waiting-code')?.childNodes[0]?.textContent.trim()");if(!code)throw Error('Room code missing');
+ const guest=await page('AuditGuest');await call('Page.navigate',{url:'http://127.0.0.1:18083/?join='+code},guest);await pause(800);await click(guest,'Join table');await pause(35000);
+ const report={browser:info.Browser,conditions:'fresh isolated browser contexts; static production build on loopback; external DNS blocked; 35 second wait after join',room:code,host:await evaluate(host,'document.body.innerText'),guest:await evaluate(guest,'document.body.innerText'),events};
+ await writeFile(base+'/offline-browser.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+}finally{ws?.close();chrome.kill('SIGTERM');server.close();}

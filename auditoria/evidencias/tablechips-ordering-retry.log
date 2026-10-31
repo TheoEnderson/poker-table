@@ -1,0 +1,41 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+No Android SDK found (ANDROID_HOME / local.properties): skipping :app.
+> Task :server:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :server:processResources UP-TO-DATE
+> Task :server:processTestResources NO-SOURCE
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :server:compileKotlin UP-TO-DATE
+> Task :server:compileJava NO-SOURCE
+> Task :server:classes UP-TO-DATE
+> Task :server:jar UP-TO-DATE
+> Task :server:compileTestKotlin UP-TO-DATE
+> Task :server:compileTestJava NO-SOURCE
+> Task :server:testClasses UP-TO-DATE
+
+> Task :server:test
+
+OrderingTest > a client is never handed a revision older than one it already has FAILED
+    kotlinx.coroutines.TimeoutCancellationException at CoroutineDebugging.kt:42
+        Caused by: kotlinx.coroutines.TimeoutCancellationException at Timeout.kt:281
+
+1 test completed, 1 failed
+
+> Task :server:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':server:test'.
+> There were failing tests. See the report at: file:///tmp/poker-audit-20261031/tablechips/server/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 18s
+7 actionable tasks: 1 executed, 6 up-to-date

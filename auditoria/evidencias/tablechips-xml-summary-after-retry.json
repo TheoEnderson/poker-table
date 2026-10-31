@@ -1,0 +1,86 @@
+[
+  {
+    "name": "io.github.tablechips.core.SeatsTest",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.SerializationTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.RulesTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.RecoveryTest",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.PokerTest",
+    "tests": "32",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.LedgerTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.IdsTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.HouseTest",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.ChipsTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.BankRunTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.core.BankGameTest",
+    "tests": "20",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "io.github.tablechips.server.OrderingTest",
+    "tests": "1",
+    "failures": "1",
+    "errors": "0",
+    "skipped": "0"
+  }
+]

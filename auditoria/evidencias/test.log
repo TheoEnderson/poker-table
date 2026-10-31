@@ -1,0 +1,13 @@
+
+> pocket-poker@0.0.0 test
+> vitest run
+
+
+ RUN  v4.1.4 /tmp/poker-audit-20261031/PocketPoker
+
+
+ Test Files  14 passed (14)
+      Tests  91 passed (91)
+   Start at  11:52:30
+   Duration  5.66s (transform 2.26s, setup 3.82s, import 3.29s, tests 1.43s, environment 45.64s)
+

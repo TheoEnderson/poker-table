@@ -1,0 +1,36 @@
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: vite-plugin-pwa@1.2.0
+npm error Found: vite@8.0.8
+npm error node_modules/vite
+npm error   dev vite@"^8.0.4" from the root project
+npm error   peer vite@"^8.0.0" from @vitejs/plugin-react@6.0.1
+npm error   node_modules/@vitejs/plugin-react
+npm error     dev @vitejs/plugin-react@"^6.0.1" from the root project
+npm error   2 more (@vitest/mocker, vitest)
+npm error
+npm error Could not resolve dependency:
+npm error peer vite@"^3.1.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" from vite-plugin-pwa@1.2.0
+npm error node_modules/vite-plugin-pwa
+npm error   dev vite-plugin-pwa@"^1.2.0" from the root project
+npm error
+npm error Conflicting peer dependency: vite@7.3.7
+npm error node_modules/vite
+npm error   peer vite@"^3.1.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" from vite-plugin-pwa@1.2.0
+npm error   node_modules/vite-plugin-pwa
+npm error     dev vite-plugin-pwa@"^1.2.0" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /tmp/poker-audit-20261031/npm-cache/_logs/2026-10-31T14_51_40_390Z-eresolve-report.txt
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+npm error A complete log of this run can be found in: /tmp/poker-audit-20261031/npm-cache/_logs/2026-10-31T14_51_40_390Z-debug-0.log

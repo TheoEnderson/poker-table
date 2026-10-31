@@ -1,0 +1,23 @@
+
+ RUN  v4.1.4 /tmp/poker-audit-20261031/probes
+
+ ✓ audit.test.ts > P01 raiser needs an extra check after all opponents call 5ms
+ ✓ audit.test.ts > P02 all-in aggressor leaves round stuck after calls 1ms
+ ✓ audit.test.ts > P03 assistant all-ins stop in FLOP_BETTING with nobody actionable 2ms
+ ✓ audit.test.ts > P04 manual payout awards side pot to ineligible short stack 3ms
+ ✓ audit.test.ts > P05 unknown declared winner destroys chips 1ms
+ ✓ audit.test.ts > P06 action accepted outside betting phase 0ms
+ ✓ audit.test.ts > P07 short all-in reopens raising for previous raiser 2ms
+ ✓ audit.test.ts > P08 short raise can lower currentBet 1ms
+ ✓ audit.test.ts > P09 dealer cannot resume another player because target is treated as actor 6ms
+ ✓ audit.test.ts > P10 rejoin does not clear disconnected flag 1ms
+ ✓ audit.test.ts > P11 a peer can claim host identity and act 2ms
+ ✓ audit.test.ts > P12 configured maxPlayers is not enforced 2ms
+ ✓ audit.test.ts > P13 state schema accepts garbage 1ms
+ ✓ audit.test.ts > P14 client accepts state from peer other than host 1ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  11:53:45
+   Duration  687ms (transform 230ms, setup 0ms, import 367ms, tests 30ms, environment 0ms)
+

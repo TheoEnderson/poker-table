@@ -1,0 +1,82 @@
+// External characterization probes: assertions document observed defects, not desired behavior.
+import { test, expect, vi } from 'vitest';
+import { createInitialState } from '@/engine/state';
+import { startHand } from '@/engine/phases';
+import { applyAction } from '@/engine/actions';
+import { buildPots } from '@/engine/pots';
+import { HostMessage } from '@/net/protocol';
+const harness = vi.hoisted(() => ({ rooms: [] as any[] }));
+vi.mock('@/net/room', () => ({ joinRoom: () => {
+  const r: any = { selfId: 'host-peer', sent: [], send(m:any,p:any) { this.sent.push({m,p}); }, onMessage(f:any){this.message=f},onPeerJoin(f:any){this.join=f},onPeerLeave(f:any){this.depart=f},leave(){} };
+  harness.rooms.push(r); return r;
+}}));
+import { Host } from '@/net/host';
+import { Client } from '@/net/client';
+const config:any = { format:'cash',deckMode:'assistant',money:{kind:'chips'},smallBlind:10,bigBlind:20,startingStack:1000,maxPlayers:3 };
+const players = ['A','B','C'].map(id=>({id,name:id,avatarColor:'#123'}));
+const initial = () => createInitialState({players,config});
+const started = () => startHand(initial(),0);
+test('P01 raiser needs an extra check after all opponents call',()=>{
+ let s=started();
+ s=applyAction(s,{type:'raise',playerId:'A',amount:60});
+ s=applyAction(s,{type:'call',playerId:'B'});
+ s=applyAction(s,{type:'call',playerId:'C'});
+ expect(s.phase).toBe('PREFLOP_BETTING'); expect(s.players[s.turnIndex].id).toBe('A');
+});
+test('P02 all-in aggressor leaves round stuck after calls',()=>{
+ let base=initial();base.players[0].stack=50; let s=startHand(base,0);
+ s=applyAction(s,{type:'all-in',playerId:'A'});s=applyAction(s,{type:'call',playerId:'B'});s=applyAction(s,{type:'call',playerId:'C'});
+ for(let i=0;i<6;i++) s=applyAction(s,{type:'check',playerId:s.players[s.turnIndex].id});
+ expect(s.phase).toBe('PREFLOP_BETTING');expect(s.actingUntilIndex).toBe(0);expect(s.players[0].allIn).toBe(true);
+});
+test('P03 assistant all-ins stop in FLOP_BETTING with nobody actionable',()=>{
+ let s=started();for(const p of players)s=applyAction(s,{type:'all-in',playerId:p.id});
+ expect(s.phase).toBe('FLOP_BETTING');expect(s.players.every(p=>p.allIn)).toBe(true);
+ expect(applyAction(s,{type:'advance-phase'}).phase).toBe('FLOP_BETTING');
+});
+test('P04 manual payout awards side pot to ineligible short stack',()=>{
+ let s=initial();s.phase='SHOWDOWN';s.players=s.players.map((p,i)=>({...p,stack:0,handContributed:i===0?50:200}));
+ s.pots=buildPots(s.players.map(p=>({id:p.id,contributed:p.handContributed,folded:false})));
+ expect(s.pots.map(p=>p.amount)).toEqual([150,300]);
+ const paid=applyAction(s,{type:'declare-winner',playerIds:['A']});expect(paid.players[0].stack).toBe(450);
+});
+test('P05 unknown declared winner destroys chips',()=>{
+ let s=initial();s.phase='SHOWDOWN';s.pots=[{amount:60,eligiblePlayers:['A','B','C']}];
+ const paid=applyAction(s,{type:'declare-winner',playerIds:['unknown']});
+ expect(paid.pots).toEqual([]);expect(paid.players.reduce((n,p)=>n+p.stack,0)).toBe(3000);
+});
+test('P06 action accepted outside betting phase',()=>{
+ const s=initial();const after=applyAction(s,{type:'bet',playerId:'A',amount:100});expect(after.players[0].stack).toBe(900);expect(after.phase).toBe('WAITING');
+});
+test('P07 short all-in reopens raising for previous raiser',()=>{
+ let base=initial();base.players[1].stack=70;let s=startHand(base,0);
+ s=applyAction(s,{type:'raise',playerId:'A',amount:60});s=applyAction(s,{type:'all-in',playerId:'B'});s=applyAction(s,{type:'call',playerId:'C'});
+ expect(()=>applyAction(s,{type:'raise',playerId:'A',amount:110})).not.toThrow();
+});
+test('P08 short raise can lower currentBet',()=>{
+ let base=initial();base.players[0].stack=15;let s=startHand(base,0);
+ s=applyAction(s,{type:'raise',playerId:'A',amount:15});expect(s.currentBet).toBe(15);
+});
+function hostFixture(){
+ let latest:any;const host=new Host({roomCode:'test',hostPlayer:players[0],onStateChange:s=>latest=s});const room=harness.rooms.at(-1);
+ const join=(id:string,peer=id)=>room.message({type:'join',player:{id,name:id,avatarColor:'#123'}},peer);
+ join('B');join('C');host.startGame(config);return {host,room,join,latest:()=>latest};
+}
+test('P09 dealer cannot resume another player because target is treated as actor',()=>{
+ const {host,room}=hostFixture();room.depart('B');expect(()=>host.applyLocalAction({type:'resume-player',playerId:'B'})).toThrow(/does not match/);
+});
+test('P10 rejoin does not clear disconnected flag',()=>{
+ const {room,join}=hostFixture();room.depart('B');join('B','B2');
+ const last=room.sent.filter((x:any)=>x.p==='B2'&&x.m.type==='state').at(-1);expect(last.m.state.players[1].disconnected).toBe(true);
+});
+test('P11 a peer can claim host identity and act',()=>{
+ const {room,join,latest}=hostFixture();join('A','imposter');room.message({type:'action',action:{type:'fold',playerId:'A'}},'imposter');expect(latest().players[0].folded).toBe(true);
+});
+test('P12 configured maxPlayers is not enforced',()=>{
+ const {host,join}=hostFixture();join('D');host.startGame(config);expect(host.getLobbyPlayers()).toHaveLength(4);
+});
+test('P13 state schema accepts garbage',()=>{expect(HostMessage.safeParse({type:'state',state:'garbage'}).success).toBe(true)});
+test('P14 client accepts state from peer other than host',()=>{
+ let observed:any;new Client({roomCode:'test',selfPlayer:players[1],onStateChange:s=>observed=s,onPrivateHoleCards:()=>{},onRejection:()=>{}});
+ const r=harness.rooms.at(-1);r.message({type:'welcome',yourPlayerId:'B'},'real-host');r.message({type:'state',state:{injected:true}},'imposter');expect(observed).toEqual({injected:true});
+});
