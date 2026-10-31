@@ -52,22 +52,26 @@ export interface InitHandParams {
   readonly previousDealerSeat?: number | null;
 }
 
-export type BettingActionType = 'fold' | 'check' | 'call';
+export type BettingActionType = 'fold' | 'check' | 'call' | 'raise' | 'all-in' | 'allIn';
 
 export interface PlayerAction {
   readonly playerId: string;
   readonly type: BettingActionType;
+  readonly amount?: number;
 }
 
 export type RoundStatus = 'active' | 'completed' | 'hand_ended_by_fold';
 
 export interface RoundPlayer extends HandPlayer {
   readonly folded: boolean;
+  readonly lastActionBet: number | null;
 }
 
 export interface RoundState {
   readonly players: readonly RoundPlayer[];
   readonly currentBet: number;
+  readonly minRaiseIncrement: number;
+  readonly lastRaiseIncrement: number;
   readonly pot: number;
   readonly currentActorId: string | null;
   readonly playersToAct: readonly string[];
