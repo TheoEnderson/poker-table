@@ -97,13 +97,14 @@ export function Table({ code }: { code: string }) {
             sync={sync}
             disabled={disabled}
             error={error}
+            command={command}
+            pending={pending}
           />
 
-          <section className="table-secondary-panel" aria-label="Gerenciamento de Assentos e Perfil">
-            <div className="table-secondary-heading">
-              <span className="eyebrow">PARTIDA INICIADA</span>
-              <h2>Assentos e Opções</h2>
-            </div>
+          <details className="table-secondary-panel" aria-label="Gerenciamento de Assentos e Perfil">
+            <summary className="table-secondary-summary">
+              <span>Assentos e Opções da Mesa ▾</span>
+            </summary>
             <ErrorNotice message={error} />
 
             <div className="table-layout">
@@ -160,16 +161,6 @@ export function Table({ code }: { code: string }) {
                     </button>
                   </form>
 
-                  {me?.seat && (
-                    <button
-                      className="text-button"
-                      disabled={disabled || gameStarted}
-                      onClick={() => void command({ type: 'select-seat', seat: null })}
-                    >
-                      Liberar minha posição
-                    </button>
-                  )}
-
                   <button
                     className="danger-quiet full"
                     disabled={disabled || (!isHost && inHand)}
@@ -180,11 +171,7 @@ export function Table({ code }: { code: string }) {
                 </section>
               </aside>
             </div>
-
-            <p className="stage-note">
-              Mão inicial salva e sincronizada. Os controles de apostas estarão disponíveis em uma próxima etapa.
-            </p>
-          </section>
+          </details>
         </>
       ) : (
         /* Modo Lobby de Preparação */

@@ -1,4 +1,4 @@
-import { EngineError, startHandFlow, type HandFlowState } from '@poker-table/engine';
+import { EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
 import { configSchema, gameStateSchema, handSnapshotSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 import { publicSettlement } from './settlement.js';
@@ -24,6 +24,7 @@ export function initializeHand(players: RoomState['players'], input: RoomConfig)
 }
 
 export function publicHand(hand: HandFlowState) {
+  const allowed = hand.status === 'in_progress' ? getAllowedActions(hand) : null;
   return handSnapshotSchema.parse({
     street: hand.street, status: hand.status,
     players: hand.players.map(p => ({
@@ -33,6 +34,7 @@ export function publicHand(hand: HandFlowState) {
     dealerSeat: hand.dealerSeat, smallBlindSeat: hand.smallBlindSeat, bigBlindSeat: hand.bigBlindSeat,
     smallBlind: hand.smallBlind, bigBlind: hand.bigBlind, pot: hand.pot,
     currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
+    allowedActions: allowed,
   });
 }
 

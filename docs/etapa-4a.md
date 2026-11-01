@@ -76,4 +76,3 @@ Em conformidade com a arquitetura definida e a auditoria final da Etapa 4A:
 - **Etapa 4C:** Controles do anfitrião para avanço de streets (`advance-street`) e feedback tátil/vibração ao receber a vez.
 - **Etapa 4D:** Modal de seleção manual de vencedores (`settle-hand`) e acionamento de `next-hand`.
 - **Etapa 4E:** Polimento final, atalhos rápidos e auditoria completa de acessibilidade.
-

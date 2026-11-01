@@ -137,6 +137,23 @@ export interface HandFlowState {
   readonly survivorId?: string | null;
 }
 
+export interface AllowedActionsInfo {
+  readonly playerId: string;
+  readonly canFold: boolean;
+  readonly canCheck: boolean;
+  readonly canCall: boolean;
+  readonly callAmount: number;
+  readonly canRaise: boolean;
+  readonly minRaiseAmount: number | null;
+  readonly maxRaiseAmount: number | null;
+  readonly minRaiseIncrement: number | null;
+  readonly currentBet: number | null;
+  readonly canAllIn: boolean;
+  readonly allInAmount: number | null;
+  readonly allInType: 'call' | 'raise' | null;
+  readonly actionNotReopened: boolean;
+}
+
 export type BuildPotsInput =
   | RoundState
   | HandFlowState

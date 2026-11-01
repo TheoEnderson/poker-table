@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allIn,
   applyAction,
   call,
   check,
   createPreFlopRound,
   EngineError,
   fold,
+  getAllowedActions,
   initHand,
+  raise,
   startPreFlopRound,
   type PlayerInput,
 } from '@poker-table/engine';
@@ -648,6 +651,162 @@ describe('Texas Hold\'em Engine — Controle de Turnos e Apostas Pré-Flop (Etap
       expect(round1.pot).toBe(50);
       expect(round1.players.find(p => p.id === 'p1')!.chips).toBe(480);
       expect(round1.players.find(p => p.id === 'p1')!.committed).toBe(20);
+    });
+  });
+
+  // 17. Projeção de Ações Permitidas (getAllowedActions — Etapa 4B)
+  describe('17. Projeção de Ações Permitidas (getAllowedActions — Etapa 4B)', () => {
+    it('projeta ações padrão no início do pré-flop (call 20, raise mín 40, all-in)', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 1000 },
+        { id: 'p2', seat: 2, chips: 1000 },
+        { id: 'p3', seat: 3, chips: 1000 },
+      ];
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      const round = createPreFlopRound(hand);
+
+      expect(round.currentActorId).toBe('p1');
+      const actions = getAllowedActions(round);
+
+      expect(actions).not.toBeNull();
+      expect(actions?.playerId).toBe('p1');
+      expect(actions?.canFold).toBe(true);
+      expect(actions?.canCheck).toBe(false);
+      expect(actions?.canCall).toBe(true);
+      expect(actions?.callAmount).toBe(20);
+      expect(actions?.canRaise).toBe(true);
+      expect(actions?.minRaiseAmount).toBe(40);
+      expect(actions?.maxRaiseAmount).toBe(1000);
+      expect(actions?.minRaiseIncrement).toBe(20);
+      expect(actions?.currentBet).toBe(20);
+      expect(actions?.canAllIn).toBe(true);
+      expect(actions?.allInAmount).toBe(1000);
+      expect(actions?.allInType).toBe('raise');
+      expect(actions?.actionNotReopened).toBe(false);
+    });
+
+    it('projeta check gratuito quando as apostas estão igualadas (Big Blind com limpers)', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 1000 },
+        { id: 'p2', seat: 2, chips: 1000 },
+        { id: 'p3', seat: 3, chips: 1000 },
+      ];
+      // dealer: p1 (seat 1), SB: p2 (seat 2), BB: p3 (seat 3)
+      // Ordem preflop: p1 -> p2 -> p3
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      let round = createPreFlopRound(hand);
+
+      round = call(round, 'p1'); // p1 calls 20
+      round = call(round, 'p2'); // p2 (SB) calls remaining 10 -> 20
+
+      // Vez do BB (p3), que já contribuiu 20
+      expect(round.currentActorId).toBe('p3');
+      const actions = getAllowedActions(round);
+
+      expect(actions).not.toBeNull();
+      expect(actions?.playerId).toBe('p3');
+      expect(actions?.canCheck).toBe(true);
+      expect(actions?.canCall).toBe(false);
+      expect(actions?.callAmount).toBe(0);
+      expect(actions?.canRaise).toBe(true);
+      expect(actions?.minRaiseAmount).toBe(40);
+      expect(actions?.maxRaiseAmount).toBe(1000);
+      expect(actions?.canAllIn).toBe(true);
+      expect(actions?.allInType).toBe('raise');
+    });
+
+    it('projeta call com valor parcial para jogador com stack curto (short call all-in)', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 15 }, // menor que a BB (20)
+        { id: 'p2', seat: 2, chips: 1000 },
+        { id: 'p3', seat: 3, chips: 1000 },
+      ];
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      const round = createPreFlopRound(hand);
+
+      expect(round.currentActorId).toBe('p1');
+      const actions = getAllowedActions(round);
+
+      expect(actions).not.toBeNull();
+      expect(actions?.canCheck).toBe(false);
+      expect(actions?.canCall).toBe(true);
+      expect(actions?.callAmount).toBe(15);
+      expect(actions?.canRaise).toBe(false);
+      expect(actions?.minRaiseAmount).toBeNull();
+      expect(actions?.maxRaiseAmount).toBeNull();
+      expect(actions?.canAllIn).toBe(true);
+      expect(actions?.allInAmount).toBe(15);
+      expect(actions?.allInType).toBe('call');
+    });
+
+    it('recalcula aumento mínimo corretamente após um raise anterior', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 1000 },
+        { id: 'p2', seat: 2, chips: 1000 },
+        { id: 'p3', seat: 3, chips: 1000 },
+      ];
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      let round = createPreFlopRound(hand);
+
+      // p1 aumenta para 60 (incremento de 40 acima do big blind de 20)
+      round = raise(round, 60, 'p1');
+
+      expect(round.currentActorId).toBe('p2');
+      const actions = getAllowedActions(round);
+
+      expect(actions).not.toBeNull();
+      expect(actions?.callAmount).toBe(50); // SB já contribuiu 10, faltam 50
+      expect(actions?.currentBet).toBe(60);
+      expect(actions?.minRaiseIncrement).toBe(40);
+      expect(actions?.minRaiseAmount).toBe(100); // 60 + 40
+      expect(actions?.maxRaiseAmount).toBe(1000); // 10 + 990
+    });
+
+    it('identifica que um short all-in não reabre apostas para quem já agiu (Regra 49 TDA)', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 500 },
+        { id: 'p2', seat: 2, chips: 100 }, // short stack
+        { id: 'p3', seat: 3, chips: 500 },
+      ];
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      let round = createPreFlopRound(hand);
+
+      // p1 aumenta para 80 (incremento de 60)
+      round = raise(round, 80, 'p1');
+
+      // p2 vai all-in com 100 total (ele já tinha pago 10 como SB, faltavam 90 fichas -> total 100)
+      // O aumento de p2 foi de 80 para 100 (apenas 20, menor que o incremento exigido de 60)
+      round = allIn(round, 'p2');
+
+      // p3 dá call nos 100
+      round = call(round, 'p3');
+
+      // Agora a ação volta para p1, que já havia apostado 80.
+      expect(round.currentActorId).toBe('p1');
+      const actions = getAllowedActions(round);
+
+      expect(actions).not.toBeNull();
+      expect(actions?.canCheck).toBe(false);
+      expect(actions?.canCall).toBe(true);
+      expect(actions?.callAmount).toBe(20); // 100 - 80
+      expect(actions?.canRaise).toBe(false); // NÃO PODE REAUMENTAR
+      expect(actions?.actionNotReopened).toBe(true);
+      expect(actions?.canAllIn).toBe(false); // All-in constituiria reaumento ilegal
+    });
+
+    it('retorna null se a rodada não estiver ativa ou para jogador fora da vez', () => {
+      const players: PlayerInput[] = [
+        { id: 'p1', seat: 1, chips: 1000 },
+        { id: 'p2', seat: 2, chips: 1000 },
+      ];
+      const hand = initHand({ players, blinds: defaultBlinds, dealerSeat: 1 });
+      const round = createPreFlopRound(hand);
+
+      expect(round.currentActorId).toBe('p1');
+      // Fora da vez
+      expect(getAllowedActions(round, 'p2')).toBeNull();
+      // Jogador inexistente
+      expect(getAllowedActions(round, 'inexistente')).toBeNull();
     });
   });
 });

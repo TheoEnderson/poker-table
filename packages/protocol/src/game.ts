@@ -3,6 +3,24 @@ import { z } from 'zod';
 const chips = z.number().int().nonnegative();
 const seat = z.number().int().min(1).max(10);
 
+export const allowedActionsSchema = z.strictObject({
+  playerId: z.uuid(),
+  canFold: z.boolean(),
+  canCheck: z.boolean(),
+  canCall: z.boolean(),
+  callAmount: chips,
+  canRaise: z.boolean(),
+  minRaiseAmount: chips.nullable(),
+  maxRaiseAmount: chips.nullable(),
+  minRaiseIncrement: chips.nullable(),
+  currentBet: chips.nullable(),
+  canAllIn: z.boolean(),
+  allInAmount: chips.nullable(),
+  allInType: z.enum(['call', 'raise']).nullable(),
+  actionNotReopened: z.boolean(),
+});
+export type AllowedActions = z.infer<typeof allowedActionsSchema>;
+
 // Public projection only. Engine bookkeeping and credentials never cross this boundary.
 export const handSnapshotSchema = z.strictObject({
   street: z.enum(['preflop', 'flop', 'turn', 'river']),
@@ -14,7 +32,9 @@ export const handSnapshotSchema = z.strictObject({
   dealerSeat: seat, smallBlindSeat: seat, bigBlindSeat: seat,
   smallBlind: chips.positive(), bigBlind: chips.positive(), pot: chips,
   currentActorId: z.uuid().nullable(), playersToAct: z.array(z.uuid()).max(10),
+  allowedActions: allowedActionsSchema.nullable().optional(),
 });
+export type HandSnapshot = z.infer<typeof handSnapshotSchema>;
 
 export const potSnapshotSchema = z.strictObject({
   id: z.string().trim().min(1),

@@ -3,12 +3,15 @@ import { gameStateSchema } from './game.js';
 export {
   gameStateSchema,
   handSnapshotSchema,
+  allowedActionsSchema,
   settlementSnapshotSchema,
   potSnapshotSchema,
   potAwardSnapshotSchema,
   playerPotAwardSnapshotSchema,
   settledPlayerSnapshotSchema,
   type GameState,
+  type HandSnapshot,
+  type AllowedActions,
   type SettlementSnapshot,
 } from './game.js';
 

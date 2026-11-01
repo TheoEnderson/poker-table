@@ -37,13 +37,15 @@ test('the existing mobile screen accepts a started game and preserves locked sea
     await send({ type: 'start-game' });
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) await page.reload();
-      await expect(page.getByText('PARTIDA INICIADA', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+      // Expand secondary panel to verify preserved seat management
+      await page.locator('details.table-secondary-panel summary').click();
       await expect(page.getByRole('button', { name: 'Posição 5, Bia, você, conectado', exact: true })).toBeDisabled();
       await expect(page.getByRole('button', { name: 'Posição 1, disponível', exact: true })).toBeDisabled();
-      await expect(page.getByRole('button', { name: 'Liberar minha posição', exact: true })).toBeDisabled();
+      // Inactive control hidden when game started (Etapa 4B UX refinement)
+      await expect(page.getByRole('button', { name: 'Liberar minha posição', exact: true })).not.toBeVisible();
       await expect(page.getByRole('button', { name: 'Sair definitivamente', exact: true })).toBeDisabled();
       await expect(page.getByRole('button', { name: 'Salvar nome', exact: true })).toBeEnabled();
-      await expect(page.getByText('Mão inicial salva e sincronizada.', { exact: false })).toBeVisible();
       await expect(page.getByRole('alert')).toHaveCount(0);
     }
   } finally { admin.disconnect(); }

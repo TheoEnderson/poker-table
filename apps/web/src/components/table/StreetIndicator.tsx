@@ -31,4 +31,3 @@ export function StreetIndicator({ game }: { game: GameState }) {
     </div>
   );
 }
-

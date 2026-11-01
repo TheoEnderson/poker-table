@@ -1,9 +1,9 @@
-import type { RoomState } from '@poker-table/protocol';
+import type { CommandInput, RoomState } from '@poker-table/protocol';
 import { ErrorNotice } from '../Layout';
 import { PotSummary } from './PotSummary';
 import { SeatStrip } from './SeatStrip';
 import { MyStatusPanel } from './MyStatusPanel';
-import { FutureActionDock } from './FutureActionDock';
+import { ActionDock } from './ActionDock';
 import { SettlementBanner } from './SettlementBanner';
 
 export function ActiveTable({
@@ -13,6 +13,8 @@ export function ActiveTable({
   sync,
   disabled,
   error,
+  command,
+  pending,
 }: {
   room: RoomState;
   selfId: string;
@@ -20,6 +22,8 @@ export function ActiveTable({
   sync: () => void;
   disabled: boolean;
   error?: string;
+  command: (input: CommandInput) => Promise<boolean>;
+  pending: boolean;
 }) {
   const game = room.game;
   if (!game) return null;
@@ -34,7 +38,7 @@ export function ActiveTable({
         <div className="header-meta">
           <div className="table-brand">
             <span className="brand-mark" aria-hidden="true">♠</span>
-            <span className="brand-name">Poker <strong>Table</strong></span>
+            <span className="room-title">{room.config.name}</span>
             {isHost && <span className="host-pill" title="Você é o anfitrião da mesa">Host</span>}
           </div>
           <div className="header-code">
@@ -73,8 +77,15 @@ export function ActiveTable({
       {/* 5. Painel Pessoal do Jogador */}
       <MyStatusPanel game={game} room={room} selfId={selfId} />
 
-      {/* 6. Espaço Reservado para o Painel de Ações Futuro */}
-      <FutureActionDock game={game} room={room} selfId={selfId} />
+      {/* 6. Console de Apostas Mobile-First */}
+      <ActionDock
+        game={game}
+        room={room}
+        selfId={selfId}
+        command={command}
+        pending={pending}
+        disabled={disabled}
+      />
     </div>
   );
 }

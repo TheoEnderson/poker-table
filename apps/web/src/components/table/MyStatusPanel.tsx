@@ -68,7 +68,7 @@ export function MyStatusPanel({
           ) : isAllIn ? (
             <span className="state-pill state-allin">Você está em All-in</span>
           ) : isMyTurn ? (
-            <span className="state-pill state-turn">É A SUA VEZ DE AGIR!</span>
+            <span className="state-pill state-turn">Sua vez</span>
           ) : game.hand.status === 'showdown' ? (
             <span className="state-pill state-showdown">Showdown · Cartas na mesa</span>
           ) : (

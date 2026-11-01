@@ -1,5 +1,7 @@
 import { EngineError } from './errors.js';
 import type {
+  AllowedActionsInfo,
+  HandFlowState,
   HandState,
   PlayerAction,
   RoundPlayer,
@@ -86,6 +88,96 @@ export function canPlayerRaise(state: RoundState, playerId: string): boolean {
 
 export function getMinRaiseAmount(state: RoundState): number {
   return state.currentBet + state.minRaiseIncrement;
+}
+
+/**
+ * Projeta as ações de aposta permitidas para o jogador da vez (ou um jogador específico),
+ * aplicando rigorosamente as regras autoritativas do motor.
+ */
+export function getAllowedActions(
+  state: RoundState | HandFlowState,
+  playerId?: string,
+): AllowedActionsInfo | null {
+  const round: RoundState = 'currentRound' in state ? state.currentRound : state;
+
+  if (round.status !== 'active') return null;
+
+  const actorId = playerId ?? round.currentActorId;
+  if (!actorId || actorId !== round.currentActorId) return null;
+
+  const player = round.players.find(p => p.id === actorId);
+  if (!player || player.folded || player.isAllIn || player.chips <= 0) return null;
+
+  const canFold = true;
+
+  const amountOwed = Math.max(0, round.currentBet - player.committed);
+  const canCheck = amountOwed === 0;
+
+  const callAmount = Math.min(player.chips, amountOwed);
+  const canCall = amountOwed > 0 && player.chips > 0;
+
+  const hasOpponentWithChips = round.players.some(
+    opponent =>
+      opponent.id !== player.id &&
+      !opponent.folded &&
+      !opponent.isAllIn &&
+      opponent.chips > 0,
+  );
+
+  const isActionReopened =
+    player.lastActionBet === null ||
+    round.currentBet - player.lastActionBet >= round.minRaiseIncrement;
+
+  const actionNotReopened = !isActionReopened && hasOpponentWithChips;
+
+  const playerCanRaise = canPlayerRaise(round, player.id);
+
+  const minRaiseTotal = round.currentBet + round.minRaiseIncrement;
+  const neededForMinRaise = minRaiseTotal - player.committed;
+  const maxRaiseTotal = player.committed + player.chips;
+
+  // Um raise padrão (onde o jogador escolhe um valor) exige direito a aumento
+  // e fichas suficientes para cobrir pelo menos o aumento mínimo.
+  const canRaise = playerCanRaise && player.chips >= neededForMinRaise;
+  const minRaiseAmount = canRaise ? minRaiseTotal : null;
+  const maxRaiseAmount = canRaise ? maxRaiseTotal : null;
+
+  // Avaliação de All-in
+  const totalPossible = player.committed + player.chips;
+  let canAllIn = player.chips > 0;
+  let allInType: 'call' | 'raise' | null = null;
+
+  if (canAllIn) {
+    if (totalPossible <= round.currentBet) {
+      allInType = 'call';
+    } else {
+      if (playerCanRaise) {
+        allInType = 'raise';
+      } else {
+        // Se aposta anterior não reabriu, jogador não pode realizar aumento nem mesmo all-in
+        canAllIn = false;
+      }
+    }
+  }
+
+  const allInAmount = canAllIn ? player.chips : null;
+
+  return Object.freeze({
+    playerId: actorId,
+    canFold,
+    canCheck,
+    canCall,
+    callAmount,
+    canRaise,
+    minRaiseAmount,
+    maxRaiseAmount,
+    minRaiseIncrement: canRaise ? round.minRaiseIncrement : null,
+    currentBet: round.currentBet,
+    canAllIn,
+    allInAmount,
+    allInType,
+    actionNotReopened,
+  });
 }
 
 export function createPreFlopRound(handState: HandState): RoundState {
