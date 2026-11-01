@@ -1,43 +1,10 @@
 import { isDeepStrictEqual } from 'node:util';
-import { z } from 'zod';
+import { persistedHandSchema } from './hand-schema.js';
+import { verifyHandV2 } from './hand-v2.js';
 import { startHandFlow, type HandFlowState } from '@poker-table/engine';
 import type { RoomConfig } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 
-const chips = z.number().int().nonnegative();
-const seat = z.number().int().min(1).max(10);
-const ids = z.array(z.uuid()).max(10);
-const player = z.strictObject({
-  id: z.uuid(), seat, chips, committed: chips, isAllIn: z.boolean(),
-});
-const positions = { dealerSeat: seat, smallBlindSeat: seat, bigBlindSeat: seat };
-const blinds = { smallBlind: chips.positive(), bigBlind: chips.positive() };
-const actor = { currentActorId: z.uuid().nullable() };
-const initial = z.strictObject({
-  players: z.array(player).min(2).max(10), participatingPlayers: z.array(player).min(2).max(10),
-  ...positions, ...blinds, pot: chips,
-  preFlopOrder: ids, postFlopOrder: ids, preFlopActionOrder: ids, postFlopActionOrder: ids,
-  preFlopActionPlayers: z.array(player).max(10), postFlopActionPlayers: z.array(player).max(10), ...actor,
-});
-const round = z.strictObject({
-  players: z.array(player.extend({ folded: z.boolean(), lastActionBet: chips.nullable() })).min(2).max(10),
-  currentBet: chips, minRaiseIncrement: chips.positive(), lastRaiseIncrement: chips.positive(),
-  pot: chips, ...actor, playersToAct: ids, status: z.enum(['active', 'completed', 'hand_ended_by_fold']),
-  ...blinds, ...positions, handState: initial,
-});
-// v1 stores only an initial hand. Future network actions require an explicit format evolution.
-const persisted = z.strictObject({
-  version: z.literal(1), status: z.literal('hand-active'),
-  hand: z.strictObject({
-    street: z.literal('preflop'), currentRound: round,
-    players: z.array(z.strictObject({
-      id: z.uuid(), seat, chips, roundCommitted: chips, totalCommitted: chips, committed: chips,
-      isAllIn: z.boolean(), folded: z.literal(false), baseCommitted: z.literal(0),
-    })).min(2).max(10),
-    ...positions, ...blinds, pot: chips, status: z.enum(['in_progress', 'showdown']),
-    handState: initial, ...actor, playersToAct: ids, survivorId: z.null(),
-  }),
-});
 
 function freeze<T>(value: T): T {
   if (value !== null && typeof value === 'object') {
@@ -111,16 +78,17 @@ function verify(hand: HandFlowState, config: RoomConfig, participants: readonly 
   if (!isDeepStrictEqual(hand, expected)) fail();
 }
 
-export function encodeHand(hand: HandFlowState, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): string {
-  const encoded = JSON.stringify({ version: 1, status: 'hand-active', hand });
+export function encodeHand(hand: HandFlowState, config: RoomConfig, participants: readonly { id: string; seat: number | null }[], version: 1 | 2 = 1): string {
+  const encoded = JSON.stringify({ version, status: 'hand-active', hand });
   decodeHand(encoded, config, participants); // Validate before any write is committed.
   return encoded;
 }
 
 export function decodeHand(raw: string, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): HandFlowState {
   try {
-    const { hand } = persisted.parse(JSON.parse(raw));
-    verify(hand, config, participants);
+    const { version, hand } = persistedHandSchema.parse(JSON.parse(raw));
+    if (version === 1) verify(hand, config, participants);
+    else verifyHandV2(hand, config, participants);
     // Restore immutable state without running initialization or charging blinds again.
     return freeze(hand);
   } catch {

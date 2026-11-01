@@ -51,7 +51,8 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
         limit();
         const command = commandSchema.parse(input);
         const state = rooms.command(credentials, command);
-        broadcast(credentials.roomId); // All writes have committed before either notification.
+        // Reutiliza o snapshot já confirmado, sem uma segunda leitura do banco.
+        io.to(credentials.roomId).emit('room:state', state);
         ack({ ok: true, data: state });
         if (command.type === 'leave') {
           for (const peer of io.sockets.sockets.values()) if (peer.data.credentials.playerId === credentials.playerId) {
@@ -64,8 +65,11 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
           io.in(credentials.roomId).disconnectSockets(true);
         }
       } catch (error) {
-        const reply = failure(error);
-        if (reply.error.code === 'STALE_STATE') socket.emit('room:state', rooms.state(credentials.roomId));
+        let reply = failure(error);
+        if (reply.error.code === 'STALE_STATE') {
+          try { socket.emit('room:state', rooms.state(credentials.roomId)); }
+          catch (stateError) { reply = failure(stateError); }
+        }
         ack(reply);
       }
     });

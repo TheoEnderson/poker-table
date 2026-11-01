@@ -4,6 +4,7 @@ import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
 import { initializeHand, publicGame } from '../game/initial-hand.js';
 import { decodeHand, encodeHand } from '../persistence/hand.js';
+import { transitionHand } from '../game/transitions.js';
 
 type RoomRow = { id: string; code: string; config: string; host_id: string; admin_hash: string; revision: number; closed: number; game: string | null };
 type PlayerRow = { id: string; room_id: string; name: string; seat: number | null; session_hash: string };
@@ -29,9 +30,13 @@ export class RoomService {
     if (c.playerId !== row.host_id || !c.adminToken || !matches(c.adminToken, row.admin_hash)) throw new RoomError('FORBIDDEN', 'Somente o anfitrião com sua credencial administrativa pode executar esta operação.');
   }
   private bump(id: string) { this.store.db.prepare('UPDATE rooms SET revision=revision+1 WHERE id=?').run(id); }
+  private config(row: RoomRow) {
+    try { return configSchema.parse(JSON.parse(row.config)); }
+    catch { throw new RoomError('STORAGE_ERROR', 'Configuração persistida da mesa inválida. Verifique o banco do servidor.'); }
+  }
   state(id: string): RoomState {
     const row = this.row(id);
-    const config = configSchema.parse(JSON.parse(row.config)), players = this.players(id);
+    const config = this.config(row), players = this.players(id);
     return {
       id: row.id, code: row.code, config, revision: row.revision, closed: !!row.closed,
       players: players.map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
@@ -138,6 +143,16 @@ export class RoomService {
           const state = this.state(c.roomId);
           const hand = initializeHand(state.players, state.config);
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players), c.roomId);
+          break;
+        }
+        case 'game-action':
+        case 'advance-street': {
+          if (command.type === 'advance-street') this.admin(c, row);
+          if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
+          const config = this.config(row), players = this.players(c.roomId);
+          const hand = decodeHand(row.game, config, players);
+          const next = transitionHand(hand, c.playerId, command);
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2), c.roomId);
           break;
         }
       }
