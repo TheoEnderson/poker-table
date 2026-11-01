@@ -3,7 +3,12 @@ import { createInitialHand, type HandFlowState } from '@poker-table/engine';
 import type { RoomConfig } from '@poker-table/protocol';
 
 // Snapshot invariants, not a replay/proof of betting history. See docs/etapa-3b.md.
-export function verifyHandV2(hand: HandFlowState, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]) {
+export function verifyHandV2(
+  hand: HandFlowState,
+  config: RoomConfig,
+  participants: readonly { id: string; seat: number | null }[],
+  expectedBudget?: number,
+) {
   const require = (condition: boolean) => { if (!condition) throw new Error('Invalid persisted hand'); };
   const sum = (values: readonly number[]) => values.reduce((total, n) => {
     require(Number.isSafeInteger(n) && n >= 0 && total <= Number.MAX_SAFE_INTEGER - n);
@@ -11,7 +16,11 @@ export function verifyHandV2(hand: HandFlowState, config: RoomConfig, participan
   }, 0);
   const { players, currentRound: round, handState: initial } = hand;
   const seated = participants.filter(p => p.seat !== null);
-  require(players.length === seated.length && players.length <= config.maxPlayers);
+  if (expectedBudget === undefined) {
+    require(players.length === seated.length && players.length <= config.maxPlayers);
+  } else {
+    require(players.length >= 2 && players.length <= seated.length && players.length <= config.maxPlayers);
+  }
   require(new Set(players.map(p => p.id)).size === players.length && new Set(players.map(p => p.seat)).size === players.length);
   require(players.every((p, i) => p.seat <= config.maxPlayers && seated.some(q => q.id === p.id && q.seat === p.seat) && (i === 0 || players[i - 1].seat < p.seat)));
   require(initial.players.length === players.length && round.players.length === players.length);
@@ -20,10 +29,24 @@ export function verifyHandV2(hand: HandFlowState, config: RoomConfig, participan
   // Validate the immutable origin using engine rules, never reconstruct the evolved hand.
   // Individual initial stacks come from the origin snapshot; their aggregate must match the room budget.
   const originPlayers = initial.players.map(p => ({ id: p.id, seat: p.seat, chips: sum([p.chips, p.committed]) }));
-  const budget = config.startingChips * players.length;
+  const budget = expectedBudget ?? (config.startingChips * players.length);
   require(Number.isSafeInteger(budget) && sum(originPlayers.map(p => p.chips)) === budget);
-  require(isDeepStrictEqual(initial, createInitialHand({ players: originPlayers, blinds: { smallBlind: config.smallBlind, bigBlind: config.bigBlind } })));
+  const expectedInitial = createInitialHand({
+    players: originPlayers,
+    blinds: {
+      smallBlind: config.smallBlind,
+      bigBlind: config.bigBlind,
+    },
+    // Registros legados: primeira mão com dealer determinístico.
+    // Formato v3: permite o dealer resultante da rotação anterior.
+    ...(expectedBudget !== undefined
+      ? { dealerSeat: initial.dealerSeat }
+      : {}),
+  });
+
+  require(isDeepStrictEqual(initial, expectedInitial));
   require(isDeepStrictEqual(initial, round.handState));
+
   for (const key of ['dealerSeat', 'smallBlindSeat', 'bigBlindSeat', 'smallBlind', 'bigBlind'] as const) {
     require(hand[key] === initial[key] && hand[key] === round[key]);
   }

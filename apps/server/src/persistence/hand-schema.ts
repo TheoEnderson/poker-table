@@ -47,4 +47,106 @@ export const persistedV2 = z.strictObject({
     survivorId: z.uuid().nullable(),
   }),
 });
-export const persistedHandSchema = z.discriminatedUnion('version', [persistedV1, persistedV2]);
+
+const potSchema = z.strictObject({
+  id: z.string().trim().min(1),
+  type: z.enum(['main', 'side']),
+  index: z.number().int().nonnegative(),
+  amount: chips,
+  contributors: ids,
+  eligiblePlayers: ids,
+  contributorIds: ids.optional(),
+  eligiblePlayerIds: ids.optional(),
+});
+
+const playerAwardSchema = z.strictObject({
+  playerId: z.uuid(),
+  amount: chips,
+});
+
+const potAwardSchema = z.strictObject({
+  potId: z.string().trim().min(1),
+  potType: z.enum(['main', 'side']),
+  potIndex: z.number().int().nonnegative(),
+  potAmount: chips,
+  winners: ids,
+  awards: z.array(playerAwardSchema),
+});
+
+const settledPlayerSchema = z.strictObject({
+  id: z.uuid(),
+  seat,
+  chips,
+  committed: chips,
+  isAllIn: z.boolean(),
+  folded: z.boolean(),
+  name: z.string().optional(),
+  totalWon: chips,
+  previousChips: chips,
+});
+
+const settlementSummarySchema = z.strictObject({
+  totalDistributed: chips,
+  playerAwards: z.array(playerAwardSchema),
+});
+
+export const persistedSettlementSchema = z.strictObject({
+  status: z.literal('settled'),
+  isSettled: z.literal(true),
+  pot: z.literal(0),
+  originalPot: chips,
+  players: z.array(settledPlayerSchema).min(2).max(10),
+  pots: z.array(potSchema).min(1),
+  potAwards: z.array(potAwardSchema),
+  summary: settlementSummarySchema,
+  handState: initial,
+  dealerSeat: seat,
+});
+
+export const potDecisionPersistenceSchema = z.strictObject({
+  potId: z.string().trim().min(1),
+  winners: z.array(z.uuid()).min(1),
+});
+
+export const persistedV3Active = z.strictObject({
+  version: z.literal(3),
+  status: z.literal('hand-active'),
+  hand: persistedV2.shape.hand,
+  handNumber: z.number().int().positive(),
+  tableBudget: chips.positive(),
+  previousSettlement: persistedSettlementSchema.optional(),
+});
+
+export const persistedV3Settled = z.strictObject({
+  version: z.literal(3),
+  status: z.literal('hand-settled'),
+  hand: persistedV2.shape.hand,
+  settlement: persistedSettlementSchema,
+  decisions: z.array(potDecisionPersistenceSchema),
+  handNumber: z.number().int().positive(),
+  tableBudget: chips.positive(),
+});
+
+export const persistedV3Complete = z.strictObject({
+  version: z.literal(3),
+  status: z.literal('game-complete'),
+  hand: persistedV2.shape.hand,
+  settlement: persistedSettlementSchema,
+  winnerId: z.uuid(),
+  decisions: z.array(potDecisionPersistenceSchema),
+  handNumber: z.number().int().positive(),
+  tableBudget: chips.positive(),
+});
+
+export const persistedHandSchema = z.union([
+  persistedV1,
+  persistedV2,
+  persistedV3Active,
+  persistedV3Settled,
+  persistedV3Complete,
+]);
+
+export type PersistedHand = z.infer<typeof persistedHandSchema>;
+export type PersistedV3Active = z.infer<typeof persistedV3Active>;
+export type PersistedV3Settled = z.infer<typeof persistedV3Settled>;
+export type PersistedV3Complete = z.infer<typeof persistedV3Complete>;

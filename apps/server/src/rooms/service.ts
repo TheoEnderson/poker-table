@@ -1,10 +1,12 @@
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, type Admission, type Credentials, type RoomState } from '@poker-table/protocol';
+import { EngineError, startNextHand, type HandFlowState } from '@poker-table/engine';
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
 import { initializeHand, publicGame } from '../game/initial-hand.js';
-import { decodeHand, encodeHand } from '../persistence/hand.js';
+import { decodeGame, encodeGame, encodeHand, type StoredGame } from '../persistence/hand.js';
 import { transitionHand } from '../game/transitions.js';
+import { settleGameHand } from '../game/settlement.js';
 
 type RoomRow = { id: string; code: string; config: string; host_id: string; admin_hash: string; revision: number; closed: number; game: string | null };
 type PlayerRow = { id: string; room_id: string; name: string; seat: number | null; session_hash: string };
@@ -40,9 +42,10 @@ export class RoomService {
     return {
       id: row.id, code: row.code, config, revision: row.revision, closed: !!row.closed,
       players: players.map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
-      game: row.game === null ? null : publicGame(decodeHand(row.game, config, players)),
+      game: row.game === null ? null : publicGame(decodeGame(row.game, config, players)),
     };
   }
+
   find(code: unknown): RoomState {
     const parsed = roomCode.parse(code);
     const row = this.store.db.prepare('SELECT id FROM rooms WHERE code=?').get(parsed) as { id: string } | undefined;
@@ -150,11 +153,88 @@ export class RoomService {
           if (command.type === 'advance-street') this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
-          const hand = decodeHand(row.game, config, players);
-          const next = transitionHand(hand, c.playerId, command);
-          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2), c.roomId);
+          const stored = decodeGame(row.game, config, players);
+          if (stored.status !== 'hand-active') throw new RoomError('HAND_ALREADY_COMPLETED', 'Esta mão não aceita mais apostas ou avanços.');
+          const next = transitionHand(stored.hand, c.playerId, command);
+          if (stored.version === 3) {
+            const nextGame: StoredGame = {
+              version: 3,
+              status: 'hand-active',
+              hand: next,
+              handNumber: stored.handNumber,
+              tableBudget: stored.tableBudget,
+              previousSettlement: stored.previousSettlement,
+            };
+            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
+          } else {
+            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2), c.roomId);
+          }
           break;
         }
+        case 'settle-hand': {
+          this.admin(c, row);
+          if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
+          const config = this.config(row), players = this.players(c.roomId);
+          const stored = decodeGame(row.game, config, players);
+          if (stored.status !== 'hand-active') throw new RoomError('ALREADY_SETTLED', 'Esta mão já foi liquidada.');
+          const settlement = settleGameHand(stored.hand, command.decisions);
+          const survivors = settlement.players.filter(p => p.chips > 0);
+          const decisions = command.decisions.map(d => ({ potId: d.potId, winners: [...d.winners] }));
+          let settledGame: StoredGame;
+          if (survivors.length <= 1) {
+            settledGame = {
+              version: 3,
+              status: 'game-complete',
+              hand: stored.hand,
+              settlement,
+              winnerId: survivors[0]?.id ?? settlement.players[0].id,
+              decisions,
+              handNumber: stored.handNumber,
+              tableBudget: stored.tableBudget,
+            };
+          } else {
+            settledGame = {
+              version: 3,
+              status: 'hand-settled',
+              hand: stored.hand,
+              settlement,
+              decisions,
+              handNumber: stored.handNumber,
+              tableBudget: stored.tableBudget,
+            };
+          }
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(settledGame, config, players), c.roomId);
+          break;
+        }
+        case 'next-hand': {
+          this.admin(c, row);
+          if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
+          const config = this.config(row), players = this.players(c.roomId);
+          const stored = decodeGame(row.game, config, players);
+          if (stored.status === 'game-complete') throw new RoomError('GAME_OVER', 'A partida já foi concluída com um vencedor final.');
+          if (stored.status === 'hand-active') throw new RoomError('INVALID_ACTION', 'A mão atual ainda não foi liquidada.');
+          let nextHandState: HandFlowState;
+          try {
+            nextHandState = startNextHand(stored.settlement, { blinds: config });
+          } catch (error) {
+            if (error instanceof EngineError) {
+              if (error.code === 'INSUFFICIENT_PLAYERS') throw new RoomError('GAME_OVER', 'Não há jogadores suficientes com fichas para iniciar uma nova mão.');
+              throw new RoomError('INVALID_INPUT', error.message);
+            }
+            throw error;
+          }
+          const nextActiveGame: StoredGame = {
+            version: 3,
+            status: 'hand-active',
+            hand: nextHandState,
+            handNumber: stored.handNumber + 1,
+            tableBudget: stored.tableBudget,
+            previousSettlement: stored.settlement,
+          };
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextActiveGame, config, players), c.roomId);
+          break;
+        }
+
       }
       this.store.db.prepare('INSERT INTO commands(room_id,player_id,command_id,fingerprint) VALUES(?,?,?,?)').run(c.roomId, c.playerId, commandId, fingerprint);
       this.bump(c.roomId);

@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { gameStateSchema } from './game.js';
-export { gameStateSchema, handSnapshotSchema, type GameState } from './game.js';
+export {
+  gameStateSchema,
+  handSnapshotSchema,
+  settlementSnapshotSchema,
+  potSnapshotSchema,
+  potAwardSnapshotSchema,
+  playerPotAwardSnapshotSchema,
+  settledPlayerSnapshotSchema,
+  type GameState,
+  type SettlementSnapshot,
+} from './game.js';
 
 export const PROTOCOL_VERSION = 1 as const;
 // eslint-disable-next-line no-control-regex -- Rejeita caracteres de controle nos nomes dos jogadores.
@@ -31,6 +41,19 @@ export const gameActionCommandSchema = z.discriminatedUnion('action', [
   z.strictObject({ ...actionBase, action: z.literal('raise'), amount: z.number().int().positive() }),
   z.strictObject({ ...actionBase, action: z.literal('all-in') }),
 ]);
+export const potDecisionSchema = z.strictObject({
+  potId: z.string().trim().min(1),
+  winners: z.array(z.uuid()).min(1),
+});
+export const settleHandCommandSchema = z.strictObject({
+  ...commandBase,
+  type: z.literal('settle-hand'),
+  decisions: z.array(potDecisionSchema).optional().default([]),
+});
+export const nextHandCommandSchema = z.strictObject({
+  ...commandBase,
+  type: z.literal('next-hand'),
+});
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('select-seat'), seat: z.number().int().min(1).max(10).nullable() }),
   z.strictObject({ ...commandBase, type: z.literal('rename'), name: displayName }),
@@ -40,6 +63,8 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('start-game') }),
   gameActionCommandSchema,
   z.strictObject({ ...commandBase, type: z.literal('advance-street') }),
+  settleHandCommandSchema,
+  nextHandCommandSchema,
 ]);
 
 export const participantSchema = z.strictObject({ id: z.uuid(), name: displayName, seat: z.number().int().nullable(), connected: z.boolean(), isHost: z.boolean() });
@@ -53,8 +78,27 @@ export type RoomState = z.infer<typeof roomStateSchema>;
 export type Command = z.infer<typeof commandSchema>;
 type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'commandId' | 'expectedRevision'> : never;
 export type CommandInput = WithoutEnvelope<Command>;
-export type GameErrorCode = 'GAME_NOT_STARTED' | 'OUT_OF_TURN' | 'INVALID_ACTION' | 'CANNOT_CHECK' | 'CANNOT_RAISE' | 'ACTION_NOT_REOPENED' | 'INVALID_RAISE_AMOUNT' | 'INSUFFICIENT_CHIPS' | 'ROUND_NOT_ACTIVE' | 'HAND_ALREADY_COMPLETED' | 'CANNOT_ADVANCE_STREET';
+export type GameErrorCode =
+  | 'GAME_NOT_STARTED'
+  | 'OUT_OF_TURN'
+  | 'INVALID_ACTION'
+  | 'CANNOT_CHECK'
+  | 'CANNOT_RAISE'
+  | 'ACTION_NOT_REOPENED'
+  | 'INVALID_RAISE_AMOUNT'
+  | 'INSUFFICIENT_CHIPS'
+  | 'ROUND_NOT_ACTIVE'
+  | 'HAND_ALREADY_COMPLETED'
+  | 'CANNOT_ADVANCE_STREET'
+  | 'MISSING_DECISION'
+  | 'DUPLICATE_DECISION'
+  | 'INELIGIBLE_WINNER'
+  | 'INVALID_POT'
+  | 'ALREADY_SETTLED'
+  | 'HAND_NOT_ENDED'
+  | 'GAME_OVER';
 export type ErrorCode = GameErrorCode | 'INVALID_INPUT' | 'NOT_FOUND' | 'ROOM_FULL' | 'SEAT_TAKEN' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'STALE_STATE' | 'ROOM_CLOSED' | 'HOST_MUST_CLOSE' | 'STORAGE_ERROR' | 'RATE_LIMITED' | 'COMMAND_CONFLICT' | 'GAME_ALREADY_STARTED' | 'GAME_IN_PROGRESS' | 'INSUFFICIENT_PLAYERS' | 'PLAYERS_DISCONNECTED';
+
 export type Failure = { ok: false; error: { code: ErrorCode; message: string } };
 export type Reply<T> = { ok: true; data: T } | Failure;
 export type Admission = { credentials: Credentials; room: RoomState };

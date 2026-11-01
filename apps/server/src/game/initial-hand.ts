@@ -1,6 +1,8 @@
 import { EngineError, startHandFlow, type HandFlowState } from '@poker-table/engine';
-import { configSchema, gameStateSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
+import { configSchema, gameStateSchema, handSnapshotSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
+import { publicSettlement } from './settlement.js';
+import type { StoredGame } from '../persistence/hand.js';
 
 export function initializeHand(players: RoomState['players'], input: RoomConfig): HandFlowState {
   const config = configSchema.parse(input);
@@ -21,18 +23,44 @@ export function initializeHand(players: RoomState['players'], input: RoomConfig)
   }
 }
 
-export function publicGame(hand: HandFlowState): GameState {
-  return gameStateSchema.parse({
-    status: 'hand-active',
-    hand: {
-      street: hand.street, status: hand.status,
-      players: hand.players.map(p => ({
-        id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
-        totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
-      })),
-      dealerSeat: hand.dealerSeat, smallBlindSeat: hand.smallBlindSeat, bigBlindSeat: hand.bigBlindSeat,
-      smallBlind: hand.smallBlind, bigBlind: hand.bigBlind, pot: hand.pot,
-      currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
-    },
+export function publicHand(hand: HandFlowState) {
+  return handSnapshotSchema.parse({
+    street: hand.street, status: hand.status,
+    players: hand.players.map(p => ({
+      id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
+      totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
+    })),
+    dealerSeat: hand.dealerSeat, smallBlindSeat: hand.smallBlindSeat, bigBlindSeat: hand.bigBlindSeat,
+    smallBlind: hand.smallBlind, bigBlind: hand.bigBlind, pot: hand.pot,
+    currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
   });
+}
+
+export function publicGame(game: StoredGame | HandFlowState): GameState {
+  if ('street' in game) {
+    return gameStateSchema.parse({
+      status: 'hand-active',
+      hand: publicHand(game),
+    });
+  }
+  switch (game.status) {
+    case 'hand-active':
+      return gameStateSchema.parse({
+        status: 'hand-active',
+        hand: publicHand(game.hand),
+      });
+    case 'hand-settled':
+      return gameStateSchema.parse({
+        status: 'hand-settled',
+        hand: publicHand(game.hand),
+        settlement: publicSettlement(game.settlement),
+      });
+    case 'game-complete':
+      return gameStateSchema.parse({
+        status: 'game-complete',
+        hand: publicHand(game.hand),
+        settlement: publicSettlement(game.settlement),
+        winnerId: game.winnerId,
+      });
+  }
 }

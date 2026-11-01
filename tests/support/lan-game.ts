@@ -84,6 +84,12 @@ class LanGame {
     return ok(await this.command(this.actorIndex(), { type: 'game-action', action, ...(amount === undefined ? {} : { amount }) }));
   }
   async advance() { return ok(await this.command(0, { type: 'advance-street' })); }
+  async settle(decisions?: { potId: string; winners: string[] }[]) {
+    return ok(await this.command(0, { type: 'settle-hand', ...(decisions !== undefined ? { decisions } : {}) }));
+  }
+  async nextHand() {
+    return ok(await this.command(0, { type: 'next-hand' }));
+  }
   async finishRound() {
     for (let n = 0; this.hand().currentActorId !== null; n++) {
       if (n >= 15) throw Error('Round failed to finish');
@@ -115,7 +121,7 @@ class LanGame {
     this.app.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, config, state.players, 2), this.roomId);
   }
   assertConserved(hand: HandFlowState = this.hand()) {
-    expect(hand.players.reduce((total, p) => total + p.chips, hand.pot)).toBe(config.startingChips * hand.players.length);
+    expect(hand.players.reduce((total, p) => total + p.chips, hand.pot)).toBe(config.startingChips * this.admissions.length);
     expect(hand.players.reduce((total, p) => total + p.totalCommitted, 0)).toBe(hand.pot);
   }
 }
