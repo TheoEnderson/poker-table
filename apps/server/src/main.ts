@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { createApplication } from './http/app.js';
-import { networkInfo } from './http/network.js';
+import { formatNetworkBanner } from './http/network.js';
 
 process.umask(0o077);
 const port = Number(process.env.PORT ?? 3000);
@@ -10,9 +10,23 @@ const app = createApplication({
   databasePath: resolve(process.env.DATABASE_PATH ?? 'data/poker-table.sqlite'),
   webDirectory: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
 });
-await app.listen(port, process.env.HOST ?? '0.0.0.0');
-console.log(`Poker Table: http://localhost:${port}`);
-for (const address of networkInfo(port).addresses) console.log(`LAN (${address.name}): ${address.url}`);
+try {
+  await app.listen(port, process.env.HOST ?? '0.0.0.0');
+} catch (err: unknown) {
+  if (err && typeof err === 'object' && 'code' in err && err.code === 'EADDRINUSE') {
+    console.error(`\n[ERRO] A porta ${port} já está em uso por outro processo.`);
+    console.error('Verifique se outra instância do Poker Table já está em execução.');
+    console.error(`Para iniciar em outra porta, utilize: PORT=${port + 1} npm start\n`);
+    process.exit(1);
+  }
+  throw err;
+}
+
+console.log('\nPoker Table pronto para uso offline:');
+for (const line of formatNetworkBanner(port)) {
+  console.log(`- ${line}`);
+}
+console.log('\nPressione Ctrl+C para encerrar o servidor.\n');
 let stopping = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
   if (stopping) return;

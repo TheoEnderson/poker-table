@@ -140,6 +140,7 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
 
     // Host sits at seat 1: seatedCount = 1 < 2 -> still hint
     await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+    await expect(page.locator('.seat.mine')).toBeVisible();
     await expect(page.getByText('Aguardando pelo menos 2 participantes sentados para iniciar.')).toBeVisible();
 
     // Guest joins via socket and sits at seat 2
@@ -2238,6 +2239,148 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       );
       expect(tableNoScroll390).toBe(true);
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('validates complete offline execution: strictly zero external network requests during room creation, invite QR generation, betting and settlement (Etapa 4E.3)', async ({ page, browser }) => {
+    const externalRequests: string[] = [];
+
+    const isLocalUrl = (urlStr: string) => {
+      if (urlStr.startsWith('data:')) return true;
+      try {
+        const u = new URL(urlStr);
+        return (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && u.port === '3100';
+      } catch {
+        return false;
+      }
+    };
+
+    // Track and abort any request outside localhost:3100 or data:
+    await page.route('**', route => {
+      const url = route.request().url();
+      if (!isLocalUrl(url)) {
+        externalRequests.push(url);
+        void route.abort('internetdisconnected');
+      } else {
+        void route.continue();
+      }
+    });
+
+    // 1. Host creates room through UI form
+    await page.goto('/create');
+    await page.getByPlaceholder('Poker de sábado').fill('Mesa Offline 100%');
+    await page.getByPlaceholder('Como devemos chamar você?').fill('Lucas Host');
+    await page.getByRole('button', { name: 'Criar mesa' }).click();
+
+    // Verify redirected to room
+    await expect(page.locator('.table-heading h1')).toHaveText('Mesa Offline 100%');
+    const roomUrl = page.url();
+    const codeMatch = roomUrl.match(/\/room\/([A-Z0-9]+)/);
+    expect(codeMatch).not.toBeNull();
+    const roomCode = codeMatch![1];
+
+    // Verify invite component renders local QR code and local link
+    const inviteSection = page.locator('.panel.invite');
+    await expect(inviteSection).toBeVisible();
+    const qrImg = inviteSection.locator('.qr');
+    await expect(qrImg).toBeVisible();
+    const qrSrc = await qrImg.getAttribute('src');
+    expect(qrSrc).toMatch(/^data:image\/png;base64,/);
+
+    const inviteLinkInput = inviteSection.locator('input[aria-label="Link de convite"]');
+    await expect(inviteLinkInput).toBeVisible();
+    const inviteLinkValue = await inviteLinkInput.inputValue();
+    expect(inviteLinkValue).toContain(`/join/${roomCode}`);
+
+    // Host sits at seat 1
+    await page.locator('.seat.empty').first().click();
+    await expect(page.locator('.seat.mine')).toBeVisible();
+
+    // 2. Guest connects via another browser context with the same offline strict routing
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.route('**', route => {
+      const url = route.request().url();
+      if (!isLocalUrl(url)) {
+        externalRequests.push(url);
+        void route.abort('internetdisconnected');
+      } else {
+        void route.continue();
+      }
+    });
+
+    try {
+      await page2.goto(`/join/${roomCode}`);
+      await page2.getByLabel('Seu nome', { exact: true }).fill('Juliana Guest');
+      await page2.getByRole('button', { name: 'Entrar na mesa' }).click();
+      await expect(page2.locator('.table-heading h1')).toHaveText('Mesa Offline 100%');
+
+      // Guest sits at seat 2
+      await page2.locator('.seat.empty').first().click();
+      await expect(page2.locator('.seat.mine')).toBeVisible();
+
+      // 3. Host starts game
+      const startBtn = page.locator('.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      // Both see active table
+      await expect(page.locator('.active-table')).toBeVisible();
+      await expect(page2.locator('.active-table')).toBeVisible();
+
+      // Preflop betting: Host calls, Guest checks
+      await page.locator('.action-btn-call').click();
+      await page2.locator('.action-btn-check').click();
+
+      // Advance Flop
+      await expect(page.locator('.host-street-controls')).toBeVisible();
+      await page.locator('.host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+
+      // Flop checks
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // Advance Turn
+      await page.locator('.host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+
+      // Turn checks
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // Advance River
+      await page.locator('.host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+
+      // River checks
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // Advance to Showdown
+      await page.locator('.host-advance-btn').click();
+
+      // Showdown: Host selects Juliana as winner
+      await expect(page.locator('.host-settlement-controls')).toBeVisible();
+      const candidateBtn = page.locator('.candidate-winner-btn', { hasText: 'Juliana Guest' });
+      await candidateBtn.click();
+
+      await page.locator('.settle-showdown-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // Hand settled banner visible on both
+      await expect(page.locator('.settlement-banner')).toBeVisible();
+      await expect(page2.locator('.settlement-banner')).toBeVisible();
+
+      // Reload host page to confirm full session recovery from local SQLite without external requests
+      await page.reload();
+      await expect(page.locator('.active-table')).toBeVisible();
+      await expect(page.locator('.host-next-hand-panel')).toBeVisible();
+
+      // 4. Assert ZERO external network requests were made throughout the entire flow
+      expect(externalRequests).toEqual([]);
     } finally {
       await guestContext.close();
     }

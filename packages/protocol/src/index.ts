@@ -106,7 +106,8 @@ export type ErrorCode = GameErrorCode | 'INVALID_INPUT' | 'NOT_FOUND' | 'ROOM_FU
 export type Failure = { ok: false; error: { code: ErrorCode; message: string } };
 export type Reply<T> = { ok: true; data: T } | Failure;
 export type Admission = { credentials: Credentials; room: RoomState };
-export type NetworkInfo = { port: number; addresses: { name: string; address: string; url: string }[] };
+export type NetworkAddress = { name: string; address: string; url: string; isVirtual?: boolean };
+export type NetworkInfo = { port: number; addresses: NetworkAddress[] };
 export interface ServerEvents { 'room:state': (state: RoomState) => void; 'session:ended': (reason: string) => void }
 export interface ClientEvents {
   'room:command': (command: Command, ack: (reply: Reply<RoomState>) => void) => void;
