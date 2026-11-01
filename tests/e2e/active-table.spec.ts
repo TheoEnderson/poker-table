@@ -380,7 +380,9 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
 
       // Preflop completed: Pot is now 120 (60 + 60)
       await expect(page.locator('.pot-value')).toContainText('120');
-      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
+      // Host has HostStreetControls visible, no redundant bottom dock message
+      await expect(page.locator('.host-street-controls')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
     } finally {
       guestSocket.disconnect();
     }
@@ -766,8 +768,10 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       );
       expect(danielaCheck.ok).toBe(true);
 
-      // Bets are equalized: Carlos sees host-specific active dock message
-      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
+      // Bets are equalized: Carlos (host) sees HostStreetControls with no redundant bottom dock message
+      await expect(page.locator('.host-street-controls')).toBeVisible();
+      await expect(page.locator('.host-advance-btn')).toHaveText('Iniciar Flop ♠');
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
 
       // Host advances to Flop via socket command
       const hostSocket: Socket<ServerEvents, ClientEvents> = io('http://127.0.0.1:3100', {
@@ -916,10 +920,8 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
       await expect(page2.locator('.host-street-controls')).toHaveCount(0);
 
-      // Host sees host-specific active dock message (no redundant "Aguardando o anfitrião")
-      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
-
-      // Host sees HostStreetControls!
+      // Host sees HostStreetControls with no redundant bottom dock message
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
       const hostControls = page.locator('.host-street-controls');
       await expect(hostControls).toBeVisible();
       const flopBtn = hostControls.locator('.host-advance-btn');
@@ -965,7 +967,7 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
 
       // Flop bets equalized!
       await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
-      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
       await expect(hostControls).toBeVisible();
       const turnBtn = hostControls.locator('.host-advance-btn');
       await expect(turnBtn).toHaveText('Iniciar Turn ♠');
@@ -1581,8 +1583,9 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page.locator('.my-status-panel')).not.toContainText('Showdown · Cartas na mesa');
       await expect(page2.locator('.my-status-panel')).not.toContainText('Showdown · Cartas na mesa');
 
-      // Verify host-specific vs guest contextual dock feedback
-      await expect(page.getByText('Mão liquidada. Inicie a próxima mão no painel acima.')).toBeVisible();
+      // Verify host has active next-hand panel and no redundant dock message, while guest sees wait message
+      await expect(page.locator('.host-next-hand-panel')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
       await expect(page2.getByText('Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.')).toBeVisible();
 
       // Both stacks return to 1000
@@ -1917,6 +1920,326 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
     } finally {
       await g1Context.close();
       await g2Context.close();
+    }
+  });
+
+  test('validates mobile layout refinement, no horizontal scroll, 48px touch targets, long player names, and no redundant host messages (Etapa 4E.2)', async ({ page, browser, request }) => {
+    // 1. Viewport 320 × 568 (iPhone SE / narrow mobile)
+    await page.setViewportSize({ width: 320, height: 568 });
+
+    // Create room with maximum starting chips (1.000.000) and long host name
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Alexandre Magno',
+        config: { name: 'Mesa Alexandre', maxPlayers: 4, startingChips: 1000000, smallBlind: 10000, bigBlind: 20000 },
+      },
+    });
+    expect(createRes.ok()).toBe(true);
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // Guest joins via API with long name
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Maximilianus Longname', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // Set host session in page 1
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // Guest context in isolated browser context
+    const guestContext = await browser.newContext({
+      viewport: { width: 320, height: 568 },
+    });
+    const page2 = await guestContext.newPage();
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      // Host sits at seat 1
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+
+      // Verify no horizontal scrolling in lobby at 320px
+      const lobbyNoScroll = await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      );
+      expect(lobbyNoScroll).toBe(true);
+
+      // Host starts game
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      // Active table loaded on both screens
+      await expect(page.locator('.active-table')).toBeVisible();
+      await expect(page2.locator('.active-table')).toBeVisible();
+
+      // Check no horizontal scroll on active table at 320px
+      const tableNoScrollHost = await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      );
+      expect(tableNoScrollHost).toBe(true);
+
+      const tableNoScrollGuest = await page2.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      );
+      expect(tableNoScrollGuest).toBe(true);
+
+      // Check that long player names in seat cards adapt safely
+      const hostCardName = page.locator('.player-card').first().locator('.card-name');
+      await expect(hostCardName).toBeVisible();
+      const guestCardName = page.locator('.player-card').nth(1).locator('.card-name');
+      await expect(guestCardName).toBeVisible();
+
+      // Verify large stack readability in player card without ellipsis or truncation
+      const hostChipValue = page.locator('.player-card').first().locator('.card-stack .chip-value');
+      await expect(hostChipValue).toHaveText('990.000');
+      const isTruncated = await hostChipValue.evaluate((el: HTMLElement) => el.scrollWidth > el.clientWidth);
+      expect(isTruncated).toBe(false);
+
+      // Verify essential elements bounding rects are strictly within 320px viewport (not clipped by overflow-x)
+      const potSummaryRect = await page.locator('.pot-summary').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(potSummaryRect.left).toBeGreaterThanOrEqual(0);
+      expect(potSummaryRect.right).toBeLessThanOrEqual(320);
+
+      const myStatusRect = await page.locator('.my-status-panel').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(myStatusRect.left).toBeGreaterThanOrEqual(0);
+      expect(myStatusRect.right).toBeLessThanOrEqual(320);
+
+      const actionDockRect = await page.locator('.action-dock').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(actionDockRect.left).toBeGreaterThanOrEqual(0);
+      expect(actionDockRect.right).toBeLessThanOrEqual(320);
+
+      // Verify touch targets of betting action buttons (>= 48px)
+      const foldBtn = page.locator('.action-btn-fold');
+      const callBtn = page.locator('.action-btn-call');
+      const raiseBtn = page.locator('.action-btn-raise');
+      const allInBtn = page.locator('.action-btn-allin');
+
+      await expect(foldBtn).toBeVisible();
+      const foldBox = await foldBtn.boundingBox();
+      expect(foldBox?.height).toBeGreaterThanOrEqual(48);
+
+      await expect(callBtn).toBeVisible();
+      const callBox = await callBtn.boundingBox();
+      expect(callBox?.height).toBeGreaterThanOrEqual(48);
+
+      await expect(raiseBtn).toBeVisible();
+      const raiseBox = await raiseBtn.boundingBox();
+      expect(raiseBox?.height).toBeGreaterThanOrEqual(48);
+
+      await expect(allInBtn).toBeVisible();
+      const allInBox = await allInBtn.boundingBox();
+      expect(allInBox?.height).toBeGreaterThanOrEqual(48);
+
+      // Open RaiseControl to verify its touch targets and bounds
+      await raiseBtn.click();
+      await expect(page.locator('.raise-control')).toBeVisible();
+
+      const raiseRect = await page.locator('.raise-control').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(raiseRect.left).toBeGreaterThanOrEqual(0);
+      expect(raiseRect.right).toBeLessThanOrEqual(320);
+
+      // Close button (>= 44px)
+      const closeRaiseBtn = page.locator('.raise-cancel-x');
+      const closeBox = await closeRaiseBtn.boundingBox();
+      expect(closeBox?.height).toBeGreaterThanOrEqual(44);
+      expect(closeBox?.width).toBeGreaterThanOrEqual(44);
+
+      // Stepper buttons (48x48)
+      const minusBtn = page.locator('.stepper-btn').first();
+      const minusBox = await minusBtn.boundingBox();
+      expect(minusBox?.height).toBe(48);
+      expect(minusBox?.width).toBe(48);
+
+      // Preset buttons (>= 44px)
+      const presetBtn = page.locator('.preset-btn').first();
+      const presetBox = await presetBtn.boundingBox();
+      expect(presetBox?.height).toBeGreaterThanOrEqual(44);
+
+      // Cancel & Confirm in raise control (>= 48px)
+      const raiseCancel = page.locator('.raise-btn-cancel');
+      const raiseCancelBox = await raiseCancel.boundingBox();
+      expect(raiseCancelBox?.height).toBeGreaterThanOrEqual(48);
+
+      const raiseConfirm = page.locator('.raise-btn-confirm');
+      const raiseConfirmBox = await raiseConfirm.boundingBox();
+      expect(raiseConfirmBox?.height).toBeGreaterThanOrEqual(48);
+
+      // Close RaiseControl
+      await closeRaiseBtn.click();
+      await expect(page.locator('.raise-control')).not.toBeVisible();
+
+      // Host (SB) calls BB (completes to 20)
+      await callBtn.click();
+
+      // Guest (BB) checks
+      await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
+      await page2.locator('.action-btn-check').click();
+
+      // Preflop bets equalized!
+      // Host has HostStreetControls visible, NO redundant dock message!
+      await expect(page.locator('.host-street-controls')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+
+      const hostControlsRect = await page.locator('.host-street-controls').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(hostControlsRect.left).toBeGreaterThanOrEqual(0);
+      expect(hostControlsRect.right).toBeLessThanOrEqual(320);
+
+      // Guest sees informative wait message and NO administrative controls
+      await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
+      await expect(page2.locator('.host-street-controls')).toHaveCount(0);
+
+      // Host confirms Flop
+      await page.locator('.host-advance-btn').click();
+      const flopModal = page.locator('dialog[open]');
+      await expect(flopModal).toBeVisible();
+      const flopModalRect = await flopModal.evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(flopModalRect.left).toBeGreaterThanOrEqual(0);
+      expect(flopModalRect.right).toBeLessThanOrEqual(320);
+      await flopModal.getByRole('button', { name: 'Confirmar Flop' }).click();
+
+      // Flop: Guest checks, Host checks
+      await expect(page2.locator('.action-btn-check')).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.locator('.action-btn-check')).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Flop bets equalized: Host has NO redundant dock message, Guest has wait message
+      await expect(page.locator('.host-street-controls')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+      await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
+
+      // Advance Turn
+      await page.locator('.host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+
+      // Turn: Guest checks, Host checks
+      await expect(page2.locator('.action-btn-check')).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.locator('.action-btn-check')).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Advance River
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+      await page.locator('.host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+
+      // River: Guest checks, Host checks
+      await expect(page2.locator('.action-btn-check')).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.locator('.action-btn-check')).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // River bets equalized: Advance to Showdown
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+      await page.locator('.host-advance-btn').click();
+
+      // --- SHOWDOWN ---
+      // Host has HostSettlementControls visible, NO redundant dock message!
+      await expect(page.locator('.host-settlement-controls')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+
+      const hostSettleRect = await page.locator('.host-settlement-controls').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(hostSettleRect.left).toBeGreaterThanOrEqual(0);
+      expect(hostSettleRect.right).toBeLessThanOrEqual(320);
+
+      // Guest sees wait message
+      await expect(page2.getByText('Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.')).toBeVisible();
+
+      // Check tie button touch target (>= 48px) and bounds
+      const tieBtn = page.locator('.tie-toggle-btn');
+      await expect(tieBtn).toBeVisible();
+      const tieBox = await tieBtn.boundingBox();
+      expect(tieBox?.height).toBeGreaterThanOrEqual(48);
+      expect(tieBox?.x).toBeGreaterThanOrEqual(0);
+      expect((tieBox?.x ?? 0) + (tieBox?.width ?? 0)).toBeLessThanOrEqual(320);
+
+      // Activate tie and select both players
+      await tieBtn.click();
+      await expect(tieBtn).toHaveAttribute('aria-pressed', 'true');
+      const candidates = page.locator('.candidate-winner-btn');
+      const candidateBox = await candidates.first().boundingBox();
+      expect(candidateBox?.x).toBeGreaterThanOrEqual(0);
+      expect((candidateBox?.x ?? 0) + (candidateBox?.width ?? 0)).toBeLessThanOrEqual(320);
+
+      await candidates.first().click();
+      await candidates.nth(1).click();
+
+      // Settle tie
+      await page.locator('.settle-showdown-btn').click();
+      const settleModal = page.locator('dialog[open]');
+      await expect(settleModal).toBeVisible();
+      const settleModalRect = await settleModal.evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(settleModalRect.left).toBeGreaterThanOrEqual(0);
+      expect(settleModalRect.right).toBeLessThanOrEqual(320);
+      await settleModal.getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // --- HAND SETTLED ---
+      // Host has next-hand panel, NO redundant dock message!
+      await expect(page.locator('.host-next-hand-panel')).toBeVisible();
+      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+
+      const nextHandRect = await page.locator('.host-next-hand-panel').evaluate((el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right };
+      });
+      expect(nextHandRect.left).toBeGreaterThanOrEqual(0);
+      expect(nextHandRect.right).toBeLessThanOrEqual(320);
+
+      // Guest sees wait message for next hand
+      await expect(page2.getByText('Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.')).toBeVisible();
+
+      // Verify stacks returned accurately without truncation
+      await expect(page.locator('.my-stack-amount')).toContainText('1.000.000');
+      await expect(page2.locator('.my-stack-amount')).toContainText('1.000.000');
+
+      // Re-verify viewport 390 × 844
+      await page.setViewportSize({ width: 390, height: 844 });
+      const tableNoScroll390 = await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      );
+      expect(tableNoScroll390).toBe(true);
+    } finally {
+      await guestContext.close();
     }
   });
 });

@@ -117,6 +117,27 @@ export function ActionDock({
 
   // Se não for a vez do jogador, renderiza dock informativo
   if (!isMyTurn) {
+    const isHost = meInRoom?.isHost ?? false;
+
+    // Se o jogador for anfitrião e já possuir um painel administrativo ativo e funcional
+    // (Avanço de Street, Apuração de Showdown, Liquidação de Fold ou Início da Próxima Mão),
+    // não renderiza uma mensagem inferior redundante que apenas repita a instrução do painel.
+    const hasHostStreetControl =
+      isHost &&
+      game.status === 'hand-active' &&
+      game.hand.status === 'in_progress' &&
+      game.hand.canAdvanceStreet === true;
+
+    const hasHostSettlementControl =
+      isHost &&
+      ((game.status === 'hand-active' &&
+        (game.hand.status === 'showdown' || game.hand.status === 'hand_ended_by_fold')) ||
+        game.status === 'hand-settled');
+
+    if (hasHostStreetControl || hasHostSettlementControl) {
+      return null;
+    }
+
     let message = 'Aguardando o andamento da mão…';
     let badgeType: 'info' | 'turn' | 'wait' | 'alert' = 'info';
     let icon = '⏳';
@@ -130,15 +151,9 @@ export function ActionDock({
       badgeType = 'info';
       icon = '🏆';
     } else if (game.status === 'hand-settled') {
-      if (meInRoom?.isHost) {
-        message = 'Mão liquidada. Inicie a próxima mão no painel acima.';
-        badgeType = 'turn';
-        icon = '👑';
-      } else {
-        message = 'Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.';
-        badgeType = 'wait';
-        icon = '⏳';
-      }
+      message = 'Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.';
+      badgeType = 'wait';
+      icon = '⏳';
     } else if (isEliminated) {
       message = 'Você foi eliminado desta partida.';
       badgeType = 'alert';
@@ -152,43 +167,25 @@ export function ActionDock({
       badgeType = 'info';
       icon = '⚡';
     } else if (game.hand.status === 'showdown') {
-      if (meInRoom?.isHost) {
-        message = 'Showdown: apure os vencedores no painel acima.';
-        badgeType = 'turn';
-        icon = '👑';
-      } else {
-        message = 'Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.';
-        badgeType = 'wait';
-        icon = '🃏';
-      }
+      message = 'Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.';
+      badgeType = 'wait';
+      icon = '🃏';
     } else if (game.hand.status === 'hand_ended_by_fold') {
-      if (meInRoom?.isHost) {
-        message = 'Mão encerrada por desistência. Confirme a entrega do pote acima.';
-        badgeType = 'turn';
-        icon = '👑';
-      } else {
-        message = 'Mão encerrada por desistência. Aguardando a confirmação do vencedor.';
-        badgeType = 'wait';
-        icon = '🏳';
-      }
+      message = 'Mão encerrada por desistência. Aguardando a confirmação do vencedor.';
+      badgeType = 'wait';
+      icon = '🏳';
     } else if (game.hand.currentActorId === null) {
-      if (meInRoom?.isHost) {
-        message = 'Apostas igualadas. Avance a rodada no painel acima.';
-        badgeType = 'turn';
-        icon = '👑';
+      if (game.hand.street === 'preflop') {
+        message = 'Aguardando o anfitrião iniciar o Flop.';
+      } else if (game.hand.street === 'flop') {
+        message = 'Aguardando o anfitrião iniciar o Turn.';
+      } else if (game.hand.street === 'turn') {
+        message = 'Aguardando o anfitrião iniciar o River.';
       } else {
-        if (game.hand.street === 'preflop') {
-          message = 'Aguardando o anfitrião iniciar o Flop.';
-        } else if (game.hand.street === 'flop') {
-          message = 'Aguardando o anfitrião iniciar o Turn.';
-        } else if (game.hand.street === 'turn') {
-          message = 'Aguardando o anfitrião iniciar o River.';
-        } else {
-          message = 'Rodada de apostas encerrada. Aguardando Showdown.';
-        }
-        badgeType = 'wait';
-        icon = '⏳';
+        message = 'Rodada de apostas encerrada. Aguardando Showdown.';
       }
+      badgeType = 'wait';
+      icon = '⏳';
     } else {
       const actor = room.players.find(p => p.id === game.hand.currentActorId);
       message = `Aguardando ${actor?.name ?? 'outro jogador'} agir…`;

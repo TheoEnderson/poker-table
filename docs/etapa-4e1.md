@@ -79,4 +79,3 @@ Execução sequencial com 1 worker:
 
 - Revisão visual pelo usuário.
 - Prosseguir para a Etapa 4E.2 (refinamentos finais de transição, feedback tátil e auditoria de empacotamento offline) após aprovação explícita.
-
