@@ -456,7 +456,7 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
     }
   });
 
-  test('requires explicit confirmation for all all-in paths (primary button, max raise, call) with correct chip amounts and zero change on cancel', async ({ page, context, request }) => {
+  test('requires explicit confirmation for all all-in paths (primary button, max raise, call) with correct chip amounts and zero change on cancel', async ({ page, browser, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     // 1. Create room with Bruno (Host, seat 1, 500 chips) and Fernanda (Guest, seat 2, 500 chips)
@@ -491,6 +491,8 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       { code: host.room.code, credentials: host.credentials },
     );
     await page.goto(`/room/${host.room.code}`);
+
+    const guestContext = await browser.newContext();
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -564,8 +566,8 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page.locator('.pot-value')).toContainText('520');
       await expect(page.getByText('Você está em All-in. Aguardando o desfecho da mão.')).toBeVisible();
 
-      // --- PATH 3: Call that puts player in All-in (Fernanda's perspective) ---
-      const page2 = await context.newPage();
+      // --- PATH 3: Call that puts player in All-in (Fernanda's perspective in isolated context) ---
+      const page2 = await guestContext.newPage();
       await page2.setViewportSize({ width: 390, height: 844 });
       await page2.addInitScript(
         ({ code, credentials }) => {
@@ -605,10 +607,9 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page2.locator('.pot-value')).toContainText('1.000');
       await expect(page2.getByText('SHOWDOWN', { exact: true })).toBeVisible();
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
-
-      await page2.close();
     } finally {
       guestSocket.disconnect();
+      await guestContext.close();
     }
   });
 
@@ -819,6 +820,367 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page.locator('.action-btn-raise')).toBeVisible();
     } finally {
       guestSocket.disconnect();
+    }
+  });
+
+  test('host advances streets progressively with physical card confirmations until showdown (Etapa 4C)', async ({ page, browser, request }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Bruno Host',
+        config: { name: 'Mesa Streets', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Fernanda Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // 3. Host session in page 1
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // 4. Guest session in an isolated browser context
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      // Host sits at seat 1
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+
+      // Verify host remains properly authenticated as host after guest joins
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+
+      // Reload host page to confirm session and host privileges persist across reloads
+      await page.reload();
+      await expect(page.locator('.lobby-host-action button.lobby-start-btn')).toBeVisible();
+
+      // Host starts game
+      await page.locator('.lobby-host-action button.lobby-start-btn').click();
+
+      // Verify Active Table for both
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+      await expect(page2.getByLabel('Mesa de jogo ativa')).toBeVisible();
+
+      // Host has host-pill indicator
+      await expect(page.locator('.host-pill')).toBeVisible();
+
+      // Reload host page during active game to confirm persistent authentication
+      await page.reload();
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+      await expect(page.locator('.host-pill')).toBeVisible();
+      await expect(page.getByText('Conectado · sincronizado')).toBeVisible();
+
+      // Responsive check at 320px
+      const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
+      expect(scrollWidth).toBeLessThanOrEqual(320);
+
+      // During active betting (SB's turn): HostStreetControls is NOT present
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
+      await expect(page2.locator('.host-street-controls')).toHaveCount(0);
+
+      // --- PREFLOP ---
+      // Bruno (SB) calls 10 (Pagar 10)
+      await page.locator('.action-btn-call').click();
+
+      // Fernanda (BB) checks
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+
+      // Bets equalized!
+      // Guest sees contextual wait message and NO admin controls
+      await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
+      await expect(page2.locator('.host-street-controls')).toHaveCount(0);
+
+      // Host sees HostStreetControls!
+      const hostControls = page.locator('.host-street-controls');
+      await expect(hostControls).toBeVisible();
+      const flopBtn = hostControls.locator('.host-advance-btn');
+      await expect(flopBtn).toHaveText('Iniciar Flop ♠');
+
+      // Verify touch target size
+      const box = await flopBtn.boundingBox();
+      expect(box?.height).toBeGreaterThanOrEqual(48);
+
+      // Host clicks Iniciar Flop -> confirmation modal opens
+      await flopBtn.click();
+      const flopModal = page.locator('dialog[open]');
+      await expect(flopModal).toBeVisible();
+      await expect(flopModal.locator('h2')).toHaveText('Iniciar Flop?');
+      await expect(flopModal.locator('p')).toHaveText(
+        'Confirme que as três cartas do flop já foram colocadas na mesa.',
+      );
+
+      // Cancel confirmation -> modal closes, street is still preflop
+      await flopModal.getByRole('button', { name: 'Cancelar' }).click();
+      await expect(flopModal).not.toBeVisible();
+      await expect(page.getByText('PRÉ-FLOP', { exact: true })).toBeVisible();
+
+      // Confirm Flop
+      await flopBtn.click();
+      await flopModal.getByRole('button', { name: 'Confirmar Flop' }).click();
+
+      // --- FLOP ---
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
+      await expect(page2.getByText('FLOP', { exact: true })).toBeVisible();
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
+
+      // Heads-up postflop: Fernanda (BB) acts first -> checks
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+
+      // Bruno (SB) acts -> checks
+      await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Flop bets equalized!
+      await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
+      await expect(hostControls).toBeVisible();
+      const turnBtn = hostControls.locator('.host-advance-btn');
+      await expect(turnBtn).toHaveText('Iniciar Turn ♠');
+
+      // Host confirms Turn
+      await turnBtn.click();
+      const turnModal = page.locator('dialog[open]');
+      await expect(turnModal.locator('h2')).toHaveText('Iniciar Turn?');
+      await expect(turnModal.locator('p')).toHaveText(
+        'Confirme que a carta do turn (quarta carta) já foi colocada na mesa.',
+      );
+      await turnModal.getByRole('button', { name: 'Confirmar Turn' }).click();
+
+      // --- TURN ---
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
+      await expect(page2.getByText('TURN', { exact: true })).toBeVisible();
+
+      // Fernanda checks, Bruno checks
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // Turn bets equalized!
+      await expect(page2.getByText('Aguardando o anfitrião iniciar o River.')).toBeVisible();
+      const riverBtn = hostControls.locator('.host-advance-btn');
+      await expect(riverBtn).toHaveText('Iniciar River ♠');
+
+      // Host confirms River
+      await riverBtn.click();
+      const riverModal = page.locator('dialog[open]');
+      await expect(riverModal.locator('h2')).toHaveText('Iniciar River?');
+      await expect(riverModal.locator('p')).toHaveText(
+        'Confirme que a carta do river (quinta carta) já foi colocada na mesa.',
+      );
+      await riverModal.getByRole('button', { name: 'Confirmar River' }).click();
+
+      // --- RIVER ---
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
+      await expect(page2.getByText('RIVER', { exact: true })).toBeVisible();
+
+      // Fernanda checks, Bruno checks
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // River bets equalized!
+      await expect(page2.getByText('Rodada de apostas encerrada. Aguardando Showdown.')).toBeVisible();
+      const showdownBtn = hostControls.locator('.host-advance-btn');
+      await expect(showdownBtn).toHaveText('Ir para Showdown ♠');
+
+      // River -> Showdown requires no community card confirmation: advances directly!
+      await showdownBtn.click();
+
+      // --- SHOWDOWN ---
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+      await expect(page2.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // In showdown, street controls are no longer shown
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('survives hand-settled and next-hand state transitions without React Hook errors', async ({ page, browser, request }) => {
+    // Collect console errors and unhandled exceptions
+    const consoleErrors: string[] = [];
+    const pageErrors: Error[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+    page.on('pageerror', err => {
+      pageErrors.push(err);
+    });
+
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Helena Host',
+        config: { name: 'Mesa Lifecycle', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Lucas Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // Connect admin/host socket and guest socket for direct server-level commands
+    const adminSocket: Socket<ServerEvents, ClientEvents> = io('http://127.0.0.1:3100', {
+      auth: { protocol: 1, credentials: host.credentials },
+      transports: ['websocket'],
+      autoConnect: false,
+    });
+    const guestSocket: Socket<ServerEvents, ClientEvents> = io('http://127.0.0.1:3100', {
+      auth: { protocol: 1, credentials: guest.credentials },
+      transports: ['websocket'],
+      autoConnect: false,
+    });
+
+    const guestContext = await browser.newContext();
+    const guestPage = await guestContext.newPage();
+
+    try {
+      await Promise.all([
+        new Promise<void>((resolve, reject) => {
+          adminSocket.once('room:state', () => resolve());
+          adminSocket.once('connect_error', reject);
+          adminSocket.connect();
+        }),
+        new Promise<void>((resolve, reject) => {
+          guestSocket.once('room:state', () => resolve());
+          guestSocket.once('connect_error', reject);
+          guestSocket.connect();
+        }),
+      ]);
+
+      const send = async (socket: Socket<ServerEvents, ClientEvents>, input: CommandInput) => {
+        const state = await new Promise<RoomState>((resolve, reject) =>
+          socket.emit('room:sync', reply => (reply.ok ? resolve(reply.data) : reject(Error(reply.error.message)))),
+        );
+        const result = await new Promise<Reply<RoomState>>(resolve =>
+          socket.emit('room:command', { ...input, commandId: randomUUID(), expectedRevision: state.revision }, resolve),
+        );
+        if (!result.ok) throw new Error(`Command failed: ${result.error.code} - ${result.error.message}`);
+        expect(result.ok).toBe(true);
+      };
+
+      // Set host in page
+      await page.addInitScript(
+        ({ code, credentials }) => {
+          localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+        },
+        { code: host.room.code, credentials: host.credentials },
+      );
+      await page.goto(`/room/${host.room.code}`);
+
+      // Set guest in guestPage
+      await guestPage.addInitScript(
+        ({ code, credentials }) => {
+          localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+        },
+        { code: host.room.code, credentials: guest.credentials },
+      );
+      await guestPage.goto(`/room/${host.room.code}`);
+
+      // Sit host and wait for start button to become visible (ensures both seated players are connected)
+      await send(adminSocket, { type: 'select-seat', seat: 1 });
+      await expect(page.locator('.lobby-host-action button.lobby-start-btn')).toBeVisible();
+      await send(adminSocket, { type: 'start-game' });
+
+      // Verify active table on host page
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+
+      // Preflop: Host (SB) calls 20, Guest (BB) checks
+      await send(adminSocket, { type: 'game-action', action: 'call' });
+      await send(guestSocket, { type: 'game-action', action: 'check' });
+      // Advance to flop
+      await send(adminSocket, { type: 'advance-street' });
+      // Flop: Guest acts first, then Host acts
+      await send(guestSocket, { type: 'game-action', action: 'check' });
+      await send(adminSocket, { type: 'game-action', action: 'check' });
+      // Advance to turn
+      await send(adminSocket, { type: 'advance-street' });
+      // Turn: Guest acts first, then Host acts
+      await send(guestSocket, { type: 'game-action', action: 'check' });
+      await send(adminSocket, { type: 'game-action', action: 'check' });
+      // Advance to river
+      await send(adminSocket, { type: 'advance-street' });
+      // River: Guest acts first, then Host acts
+      await send(guestSocket, { type: 'game-action', action: 'check' });
+      await send(adminSocket, { type: 'game-action', action: 'check' });
+      // Advance to showdown
+      await send(adminSocket, { type: 'advance-street' });
+
+      // Verify SHOWDOWN on page
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // 3. Execute a valid settlement by the server
+      await send(adminSocket, { type: 'settle-hand', decisions: [{ potId: 'main', winners: [host.credentials.playerId] }] });
+
+      // 4. Verify host UI continues rendering normally in hand-settled state
+      await expect(page.getByText('MÃO LIQUIDADA', { exact: true })).toBeVisible();
+      await expect(page.getByText('POTE DISTRIBUÍDO', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+
+      // 5. Confirm NO React Hook errors or page errors occurred
+      const hookErrors = consoleErrors.filter(err =>
+        err.includes('Rendered fewer hooks than expected') ||
+        err.includes('Rendered more hooks than expected') ||
+        err.includes('Rules of Hooks') ||
+        err.includes('hook'),
+      );
+      expect(hookErrors).toHaveLength(0);
+      expect(pageErrors).toHaveLength(0);
+
+      // 6. Start the next hand via server and confirm UI remains functional
+      await send(adminSocket, { type: 'next-hand' });
+
+      // Hand 2 is active!
+      await expect(page.getByText('PRÉ-FLOP', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+      await expect(page.getByText('MÃO LIQUIDADA')).toHaveCount(0);
+
+      // Again check for no console errors after next-hand transition
+      const postNextHandHookErrors = consoleErrors.filter(err =>
+        err.includes('Rendered fewer hooks than expected') ||
+        err.includes('Rendered more hooks than expected') ||
+        err.includes('Rules of Hooks') ||
+        err.includes('hook'),
+      );
+      expect(postNextHandHookErrors).toHaveLength(0);
+      expect(pageErrors).toHaveLength(0);
+    } finally {
+      adminSocket.disconnect();
+      guestSocket.disconnect();
+      await guestContext.close();
     }
   });
 });

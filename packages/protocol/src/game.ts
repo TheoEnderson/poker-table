@@ -33,6 +33,7 @@ export const handSnapshotSchema = z.strictObject({
   smallBlind: chips.positive(), bigBlind: chips.positive(), pot: chips,
   currentActorId: z.uuid().nullable(), playersToAct: z.array(z.uuid()).max(10),
   allowedActions: allowedActionsSchema.nullable().optional(),
+  canAdvanceStreet: z.boolean().optional(),
 });
 export type HandSnapshot = z.infer<typeof handSnapshotSchema>;
 

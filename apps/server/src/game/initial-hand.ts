@@ -1,4 +1,4 @@
-import { EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
+import { canAdvanceStreet, EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
 import { configSchema, gameStateSchema, handSnapshotSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 import { publicSettlement } from './settlement.js';
@@ -35,6 +35,7 @@ export function publicHand(hand: HandFlowState) {
     smallBlind: hand.smallBlind, bigBlind: hand.bigBlind, pot: hand.pot,
     currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
     allowedActions: allowed,
+    canAdvanceStreet: canAdvanceStreet(hand),
   });
 }
 

@@ -5,6 +5,7 @@ import { SeatStrip } from './SeatStrip';
 import { MyStatusPanel } from './MyStatusPanel';
 import { ActionDock } from './ActionDock';
 import { SettlementBanner } from './SettlementBanner';
+import { HostStreetControls } from './HostStreetControls';
 
 export function ActiveTable({
   room,
@@ -77,7 +78,17 @@ export function ActiveTable({
       {/* 5. Painel Pessoal do Jogador */}
       <MyStatusPanel game={game} room={room} selfId={selfId} />
 
-      {/* 6. Console de Apostas Mobile-First */}
+      {/* 6. Controles Administrativos de Street (Exclusivo do Anfitrião) */}
+      <HostStreetControls
+        game={game}
+        room={room}
+        selfId={selfId}
+        command={command}
+        pending={pending}
+        disabled={disabled}
+      />
+
+      {/* 7. Console de Apostas Mobile-First */}
       <ActionDock
         game={game}
         room={room}

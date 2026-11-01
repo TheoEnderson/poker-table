@@ -138,4 +138,3 @@ Qualquer ação capaz de comprometer todo o stack restante de um jogador exige c
 - A utilização de `parseInt()` foi substituída por validação numérica rigorosa baseada em expressão regular (`/^\d+$/`) e `Number.isSafeInteger()`, impedindo o truncamento silencioso de números decimais (por exemplo, "40.5").
 - O campo de entrada armazena a string exata digitada pelo usuário, exibindo mensagens de erro específicas e desabilitando o botão de confirmação quando a entrada for vazia, fracionária ou estiver fora dos limites mínimo/máximo da rodada.
 - O atributo HTML `step="any"` é aplicado no `<input type="number">` para que validações nativas do navegador não restrinjam valores inteiros válidos autorizados pelo motor, enquanto os botões de passo (`−` e `+`) continuam incrementando e decrementando pelo passo real da rodada.
-

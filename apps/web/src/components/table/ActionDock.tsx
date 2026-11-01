@@ -154,9 +154,23 @@ export function ActionDock({
       badgeType = 'wait';
       icon = '🏳';
     } else if (game.hand.currentActorId === null) {
-      message = 'Apostas igualadas. Aguardando o anfitrião avançar a rodada.';
-      badgeType = 'wait';
-      icon = '⏳';
+      if (meInRoom?.isHost) {
+        message = 'Apostas igualadas. Aguardando o anfitrião avançar a rodada.';
+        badgeType = 'turn';
+        icon = '👑';
+      } else {
+        if (game.hand.street === 'preflop') {
+          message = 'Aguardando o anfitrião iniciar o Flop.';
+        } else if (game.hand.street === 'flop') {
+          message = 'Aguardando o anfitrião iniciar o Turn.';
+        } else if (game.hand.street === 'turn') {
+          message = 'Aguardando o anfitrião iniciar o River.';
+        } else {
+          message = 'Rodada de apostas encerrada. Aguardando Showdown.';
+        }
+        badgeType = 'wait';
+        icon = '⏳';
+      }
     } else {
       const actor = room.players.find(p => p.id === game.hand.currentActorId);
       message = `Aguardando ${actor?.name ?? 'outro jogador'} agir…`;
@@ -306,4 +320,3 @@ export function ActionDock({
     </footer>
   );
 }
-
