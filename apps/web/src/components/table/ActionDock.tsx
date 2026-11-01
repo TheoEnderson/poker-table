@@ -130,9 +130,15 @@ export function ActionDock({
       badgeType = 'info';
       icon = '🏆';
     } else if (game.status === 'hand-settled') {
-      message = 'Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.';
-      badgeType = 'wait';
-      icon = '⏳';
+      if (meInRoom?.isHost) {
+        message = 'Mão liquidada. Inicie a próxima mão no painel acima.';
+        badgeType = 'turn';
+        icon = '👑';
+      } else {
+        message = 'Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.';
+        badgeType = 'wait';
+        icon = '⏳';
+      }
     } else if (isEliminated) {
       message = 'Você foi eliminado desta partida.';
       badgeType = 'alert';
@@ -146,16 +152,28 @@ export function ActionDock({
       badgeType = 'info';
       icon = '⚡';
     } else if (game.hand.status === 'showdown') {
-      message = 'Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.';
-      badgeType = 'wait';
-      icon = '🃏';
+      if (meInRoom?.isHost) {
+        message = 'Showdown: apure os vencedores no painel acima.';
+        badgeType = 'turn';
+        icon = '👑';
+      } else {
+        message = 'Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.';
+        badgeType = 'wait';
+        icon = '🃏';
+      }
     } else if (game.hand.status === 'hand_ended_by_fold') {
-      message = 'Mão encerrada por desistência. Aguardando a confirmação do vencedor.';
-      badgeType = 'wait';
-      icon = '🏳';
+      if (meInRoom?.isHost) {
+        message = 'Mão encerrada por desistência. Confirme a entrega do pote acima.';
+        badgeType = 'turn';
+        icon = '👑';
+      } else {
+        message = 'Mão encerrada por desistência. Aguardando a confirmação do vencedor.';
+        badgeType = 'wait';
+        icon = '🏳';
+      }
     } else if (game.hand.currentActorId === null) {
       if (meInRoom?.isHost) {
-        message = 'Apostas igualadas. Aguardando o anfitrião avançar a rodada.';
+        message = 'Apostas igualadas. Avance a rodada no painel acima.';
         badgeType = 'turn';
         icon = '👑';
       } else {
@@ -191,6 +209,8 @@ export function ActionDock({
   }
 
   // É a vez do jogador: Console Funcional de Apostas
+  const isBet = (allowed?.currentBet ?? 0) === 0;
+
   return (
     <footer className="action-dock action-dock-active" aria-label="Painel de ações de aposta">
       {showRaise && allowed?.canRaise && allowed.minRaiseAmount !== null && allowed.maxRaiseAmount !== null ? (
@@ -200,6 +220,7 @@ export function ActionDock({
           minRaiseIncrement={allowed.minRaiseIncrement ?? game.hand.bigBlind}
           playerRoundCommitted={meInHand?.roundCommitted ?? 0}
           playerChips={currentChips}
+          isBet={isBet}
           disabled={isActionDisabled}
           onConfirm={amount => void handleRaiseSubmit(amount)}
           onCancel={() => setShowRaise(false)}
@@ -231,9 +252,9 @@ export function ActionDock({
                 className="action-btn action-btn-check"
                 disabled={isActionDisabled}
                 onClick={() => void handleCheck()}
-                aria-label="Dar check (passar a vez)"
+                aria-label="Passar a vez (Check)"
               >
-                Check ✕
+                Passar (Check)
               </button>
             ) : allowed?.canCall ? (
               <button
@@ -255,16 +276,16 @@ export function ActionDock({
               </button>
             ) : null}
 
-            {/* 3. Raise */}
+            {/* 3. Raise ou Bet */}
             {allowed?.canRaise && (
               <button
                 type="button"
                 className="action-btn action-btn-raise"
                 disabled={isActionDisabled}
                 onClick={() => setShowRaise(true)}
-                aria-label="Abrir opções de aumento de aposta"
+                aria-label={isBet ? 'Abrir opções de aposta' : 'Abrir opções de aumento de aposta'}
               >
-                Aumentar (Raise)
+                {isBet ? 'Apostar' : 'Aumentar (Raise)'}
               </button>
             )}
 

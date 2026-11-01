@@ -380,7 +380,7 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
 
       // Preflop completed: Pot is now 120 (60 + 60)
       await expect(page.locator('.pot-value')).toContainText('120');
-      await expect(page.getByText('Apostas igualadas. Aguardando o anfitrião avançar a rodada.')).toBeVisible();
+      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
     } finally {
       guestSocket.disconnect();
     }
@@ -766,8 +766,8 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       );
       expect(danielaCheck.ok).toBe(true);
 
-      // Bets are equalized: Carlos sees waiting dock
-      await expect(page.getByText('Apostas igualadas. Aguardando o anfitrião avançar a rodada.')).toBeVisible();
+      // Bets are equalized: Carlos sees host-specific active dock message
+      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
 
       // Host advances to Flop via socket command
       const hostSocket: Socket<ServerEvents, ClientEvents> = io('http://127.0.0.1:3100', {
@@ -906,14 +906,18 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       // Bruno (SB) calls 10 (Pagar 10)
       await page.locator('.action-btn-call').click();
 
-      // Fernanda (BB) checks
+      // Fernanda (BB) checks (button Passar (Check))
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page2.locator('.action-btn-check').click();
 
       // Bets equalized!
       // Guest sees contextual wait message and NO admin controls
       await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
       await expect(page2.locator('.host-street-controls')).toHaveCount(0);
+
+      // Host sees host-specific active dock message (no redundant "Aguardando o anfitrião")
+      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
 
       // Host sees HostStreetControls!
       const hostControls = page.locator('.host-street-controls');
@@ -948,16 +952,20 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page2.getByText('FLOP', { exact: true })).toBeVisible();
       await expect(page.locator('.host-street-controls')).toHaveCount(0);
 
-      // Heads-up postflop: Fernanda (BB) acts first -> checks
+      // Heads-up postflop: Fernanda (BB) acts first -> checks (nobody bet yet -> button is "Apostar")
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
+      await expect(page2.locator('.action-btn-raise')).toHaveText('Apostar');
       await page2.locator('.action-btn-check').click();
 
       // Bruno (SB) acts -> checks
       await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
+      await expect(page.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page.locator('.action-btn-check').click();
 
       // Flop bets equalized!
       await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
+      await expect(page.getByText('Apostas igualadas. Avance a rodada no painel acima.')).toBeVisible();
       await expect(hostControls).toBeVisible();
       const turnBtn = hostControls.locator('.host-advance-btn');
       await expect(turnBtn).toHaveText('Iniciar Turn ♠');
@@ -1481,11 +1489,16 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
 
       // Preflop: call, check
       await page.locator('.action-btn-call').click();
+      await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page2.locator('.action-btn-check').click();
 
       // Advance through streets
       await page.locator('.host-street-controls .host-advance-btn').click();
       await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+
+      // On Flop: nobody has bet yet -> button is "Apostar" and check is "Passar (Check)"
+      await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
+      await expect(page2.locator('.action-btn-raise')).toHaveText('Apostar');
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
 
@@ -1503,10 +1516,17 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await page.locator('.host-street-controls .host-advance-btn').click();
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
 
-      // Enable Tie mode
+      // Enable Tie mode via compact toggle button with aria-pressed
       const hostShowdown = page.locator('.host-settlement-controls.host-showdown-panel');
-      const tieCheckbox = hostShowdown.locator('input[type="checkbox"]');
-      await tieCheckbox.check();
+      const tieToggleBtn = hostShowdown.locator('.tie-toggle-btn');
+      await expect(tieToggleBtn).toBeVisible();
+      await expect(tieToggleBtn).toHaveText('⚖ Ativar empate');
+      await expect(tieToggleBtn).toHaveAttribute('aria-pressed', 'false');
+
+      // Click to activate
+      await tieToggleBtn.click();
+      await expect(tieToggleBtn).toHaveText('✓ Empate ativado');
+      await expect(tieToggleBtn).toHaveAttribute('aria-pressed', 'true');
 
       // Select both candidates
       const eduardoBtn = hostShowdown.locator('.candidate-winner-btn', { hasText: 'Eduardo Host' });
@@ -1517,14 +1537,19 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       // Shows tie resolution pill
       await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
 
-      // Verify repeated alternation of tieMode (pure toggleTie function):
-      // 1. Uncheck tie mode -> only 1 winner should remain selected, tie pill disappears
-      await tieCheckbox.uncheck();
+      // Verify keyboard accessibility and repeated alternation of tieMode (pure toggleTie function):
+      // 1. Deactivate via Space key -> only 1 winner should remain selected, tie pill disappears
+      await tieToggleBtn.focus();
+      await page.keyboard.press('Space');
+      await expect(tieToggleBtn).toHaveText('⚖ Ativar empate');
+      await expect(tieToggleBtn).toHaveAttribute('aria-pressed', 'false');
       await expect(hostShowdown.getByText('⚖️ Empate (2)')).not.toBeVisible();
       await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(1);
 
-      // 2. Re-check tie mode -> both can be selected again
-      await tieCheckbox.check();
+      // 2. Reactivate via Enter key -> both can be selected again
+      await page.keyboard.press('Enter');
+      await expect(tieToggleBtn).toHaveText('✓ Empate ativado');
+      await expect(tieToggleBtn).toHaveAttribute('aria-pressed', 'true');
       if (!(await eduardoBtn.evaluate(el => el.classList.contains('candidate-selected')))) {
         await eduardoBtn.click();
       } else {
@@ -1533,17 +1558,6 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
       await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(2);
 
-      // 3. Toggle once more to confirm stability of repeated pure updates
-      await tieCheckbox.uncheck();
-      await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(1);
-      await tieCheckbox.check();
-      if (!(await eduardoBtn.evaluate(el => el.classList.contains('candidate-selected')))) {
-        await eduardoBtn.click();
-      } else {
-        await fabiolaBtn.click();
-      }
-      await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
-
       // Confirm
       await hostShowdown.locator('.settle-showdown-btn').click();
       const confirmModal = page.locator('dialog[open]');
@@ -1551,11 +1565,26 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(confirmModal.locator('p')).toContainText('Empate');
       await confirmModal.getByRole('button', { name: 'Confirmar Liquidação' }).click();
 
-      // Verify split pot in SettlementBanner
+      // Verify split pot in SettlementBanner with individual awards
       await expect(page.getByText('Resultado da Mão', { exact: true })).toBeVisible();
-      await expect(page.locator('.settlement-banner')).toContainText('Vencedores (Empate)');
-      await expect(page.locator('.settlement-banner')).toContainText('Eduardo Host');
-      await expect(page.locator('.settlement-banner')).toContainText('Fabiola Guest');
+      const banner = page.locator('.settlement-banner');
+      await expect(banner).toContainText('Vencedores (Empate)');
+      await expect(banner).toContainText('Eduardo Host');
+      await expect(banner).toContainText('Fabiola Guest');
+      await expect(banner.locator('.pot-split-item')).toHaveCount(2);
+      await expect(banner.locator('.pot-split-item').nth(0)).toContainText('+20 fichas');
+      await expect(banner.locator('.pot-split-item').nth(1)).toContainText('+20 fichas');
+
+      // Verify correct state message in MyStatusPanel (no outdated Showdown text after settlement)
+      await expect(page.locator('.my-status-panel .state-pill')).toHaveText('Mão encerrada');
+      await expect(page2.locator('.my-status-panel .state-pill')).toHaveText('Mão encerrada');
+      await expect(page.locator('.my-status-panel')).not.toContainText('Showdown · Cartas na mesa');
+      await expect(page2.locator('.my-status-panel')).not.toContainText('Showdown · Cartas na mesa');
+
+      // Verify host-specific vs guest contextual dock feedback
+      await expect(page.getByText('Mão liquidada. Inicie a próxima mão no painel acima.')).toBeVisible();
+      await expect(page2.getByText('Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.')).toBeVisible();
+
       // Both stacks return to 1000
       await expect(page.locator('.my-stack-amount')).toContainText('1.000');
       await expect(page2.locator('.my-stack-amount')).toContainText('1.000');

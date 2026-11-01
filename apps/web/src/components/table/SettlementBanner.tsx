@@ -41,18 +41,36 @@ export function SettlementBanner({
       <div className="awards-list">
         {settlement.potAwards.map(pot => {
           const potTitle = pot.potType === 'main' ? 'Pote Principal' : `Pote Paralelo ${pot.potIndex}`;
+          const isTie = pot.winners.length > 1;
           const winnerNames = pot.winners
             .map(id => room.players.find(p => p.id === id)?.name ?? 'Jogador')
             .join(', ');
-          const winnerLabel = pot.winners.length > 1 ? 'Vencedores (Empate)' : 'Vencedor';
+          const winnerLabel = isTie ? 'Vencedores (Empate)' : 'Vencedor';
 
           return (
             <div key={pot.potId} className="pot-award-row">
-              <div className="pot-award-info">
-                <strong>{potTitle}</strong>
-                <span>{winnerLabel}: {winnerNames}</span>
+              <div className="pot-award-main">
+                <div className="pot-award-info">
+                  <strong>{potTitle}</strong>
+                  <span>{winnerLabel}: {winnerNames}</span>
+                </div>
+                <ChipAmount value={pot.potAmount} size="sm" className="pot-award-amount" />
               </div>
-              <ChipAmount value={pot.potAmount} size="sm" className="pot-award-amount" />
+
+              {isTie && pot.awards.length > 1 && (
+                <ul className="pot-split-list" aria-label={`Divisão do ${potTitle}`}>
+                  {pot.awards.map(award => {
+                    const pl = room.players.find(p => p.id === award.playerId);
+                    const name = pl?.name ?? 'Jogador';
+                    return (
+                      <li key={award.playerId} className="pot-split-item">
+                        <span className="split-winner-name">• {name}:</span>
+                        <span className="split-winner-amount">+{award.amount.toLocaleString('pt-BR')} fichas</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           );
         })}

@@ -63,6 +63,10 @@ export function MyStatusPanel({
             <span className="state-pill state-spectator">Apenas observando</span>
           ) : isEliminated ? (
             <span className="state-pill state-eliminated">Você foi eliminado desta partida</span>
+          ) : game.status === 'game-complete' ? (
+            <span className="state-pill state-complete">Partida encerrada</span>
+          ) : game.status === 'hand-settled' ? (
+            <span className="state-pill state-settled">Mão encerrada</span>
           ) : isFolded ? (
             <span className="state-pill state-folded">Você desistiu desta mão (Fold)</span>
           ) : isAllIn ? (
@@ -71,6 +75,8 @@ export function MyStatusPanel({
             <span className="state-pill state-turn">Sua vez</span>
           ) : game.hand.status === 'showdown' ? (
             <span className="state-pill state-showdown">Showdown · Cartas na mesa</span>
+          ) : game.hand.status === 'hand_ended_by_fold' ? (
+            <span className="state-pill state-ended">Mão encerrada</span>
           ) : (
             <span className="state-pill state-waiting">Aguardando sua vez</span>
           )}

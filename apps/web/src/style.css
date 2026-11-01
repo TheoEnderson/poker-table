@@ -147,7 +147,7 @@
   .active-table {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
     max-width: 620px;
     margin: 0 auto;
     width: 100%;
@@ -157,10 +157,10 @@
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 12px;
-    padding: 10px 14px;
+    padding: 8px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
   .header-meta {
     display: flex;
@@ -208,12 +208,12 @@
     background: radial-gradient(ellipse at 50% 20%, #173325, #101c16);
     border: 1px solid #2d4839;
     border-radius: 16px;
-    padding: 16px 14px;
+    padding: 12px 14px;
     text-align: center;
     box-shadow: 0 4px 20px #00000040, inset 0 0 0 1px #46695325;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
   .pot-header {
     display: flex;
@@ -423,10 +423,10 @@
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 14px 16px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
   .panel-my-turn {
     border-color: var(--emerald);
@@ -493,13 +493,16 @@
   .state-eliminated { background: #1f2937; color: #9ca3af; border: 1px dashed #4b5563; }
   .state-spectator { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
   .state-showdown { background: #451a03; color: #fde68a; }
+  .state-settled { background: #1e293b; color: #93c5fd; border: 1px solid #3b82f640; }
+  .state-ended { background: #374151; color: #d1d5db; }
+  .state-complete { background: #2e1065; color: #e9d5ff; border: 1px solid #a855f740; }
 
   /* Future Action Dock */
   .future-action-dock {
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 14px 18px;
+    padding: 10px 14px;
     text-align: center;
     box-sizing: border-box;
     margin-top: 4px;
@@ -536,7 +539,7 @@
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 14px;
-    padding: 14px 18px;
+    padding: 10px 14px;
     text-align: center;
     box-sizing: border-box;
     margin-top: 4px;
@@ -851,11 +854,11 @@
     background: linear-gradient(135deg, rgba(28, 36, 26, 0.95), rgba(16, 24, 16, 0.95));
     border: 1px solid var(--gold);
     border-radius: 14px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 12px rgba(226, 188, 115, 0.15);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     box-sizing: border-box;
   }
   .settlement-status-badge {
@@ -1014,15 +1017,44 @@
     color: #fde047;
   }
   .tie-mode-row {
-    margin-top: 2px;
+    margin: 2px 0;
   }
-  .tie-mode-label {
+  .tie-toggle-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    font-size: 0.75rem;
-    color: #cbd5e1;
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
     cursor: pointer;
+    background: #142018;
+    color: #cbd5e1;
+    border: 1px solid var(--line);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    touch-action: manipulation;
+  }
+  .tie-toggle-btn:hover:not(:disabled) {
+    background: #1c2c22;
+    border-color: #3f664e;
+    color: #f1eadb;
+  }
+  .tie-toggle-btn.tie-active {
+    background: rgba(226, 188, 115, 0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 10px rgba(226, 188, 115, 0.25);
+  }
+  .tie-toggle-btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .tie-toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .eligible-candidates-grid {
     display: grid;
@@ -1196,12 +1228,18 @@
   }
   .pot-award-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
     background: #182620;
     padding: 8px 12px;
     border-radius: 8px;
     font-size: 0.8rem;
+  }
+  .pot-award-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
   }
   .pot-award-info {
     display: flex;
@@ -1210,6 +1248,34 @@
   }
   .pot-award-info strong { color: #f4eee1; }
   .pot-award-info span { color: var(--muted); font-size: 0.72rem; }
+  .pot-split-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 6px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pot-split-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    color: #e2e8f0;
+    padding: 2px 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+  .split-winner-name {
+    font-weight: 500;
+    color: #f1eadb;
+  }
+  .split-winner-amount {
+    font-weight: 700;
+    color: #86efac;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Seção Secundária (Lobby & Assentos preservados) */
   .table-secondary-panel {

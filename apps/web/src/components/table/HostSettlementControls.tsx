@@ -241,15 +241,16 @@ export function HostSettlementControls({
 
                   {!hasSingleEligible && (
                     <div className="tie-mode-row">
-                      <label className="tie-mode-label">
-                        <input
-                          type="checkbox"
-                          checked={tieMode[pot.id] ?? false}
-                          onChange={() => toggleTie(pot.id)}
-                          disabled={pending || disabled}
-                        />
-                        <span>Dividir pote (empate entre jogadores)</span>
-                      </label>
+                      <button
+                        type="button"
+                        className={`tie-toggle-btn ${tieMode[pot.id] ? 'tie-active' : ''}`}
+                        onClick={() => toggleTie(pot.id)}
+                        disabled={pending || disabled}
+                        aria-pressed={tieMode[pot.id] ?? false}
+                        aria-label={tieMode[pot.id] ? 'Empate ativado para este pote' : 'Ativar empate para este pote'}
+                      >
+                        {tieMode[pot.id] ? '✓ Empate ativado' : '⚖ Ativar empate'}
+                      </button>
                     </div>
                   )}
 

@@ -6,6 +6,7 @@ export function RaiseControl({
   minRaiseIncrement,
   playerRoundCommitted,
   playerChips,
+  isBet = false,
   disabled,
   onConfirm,
   onCancel,
@@ -15,6 +16,7 @@ export function RaiseControl({
   minRaiseIncrement: number;
   playerRoundCommitted: number;
   playerChips: number;
+  isBet?: boolean;
   disabled: boolean;
   onConfirm: (amount: number) => void;
   onCancel: () => void;
@@ -67,7 +69,7 @@ export function RaiseControl({
   return (
     <div className="raise-control" aria-label="Seletor de valor de aposta">
       <div className="raise-header">
-        <span className="raise-title">Definir Aumento (Raise)</span>
+        <span className="raise-title">{isBet ? 'Definir Aposta' : 'Definir Aumento (Raise)'}</span>
         <button
           type="button"
           className="text-button raise-cancel-x"
