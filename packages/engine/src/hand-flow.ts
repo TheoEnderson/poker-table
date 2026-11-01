@@ -411,3 +411,4 @@ export function handAllIn(state: HandFlowState, playerId?: string): HandFlowStat
 }
 
 export { settleHandFlow } from './settlement.js';
+export { determineNextDealerSeat, startNextHand } from './next-hand.js';

@@ -192,3 +192,7 @@ export interface SettlementResult {
   readonly handState: HandState;
   readonly dealerSeat: number;
 }
+
+export interface StartNextHandOptions {
+  readonly blinds?: BlindsConfig;
+}

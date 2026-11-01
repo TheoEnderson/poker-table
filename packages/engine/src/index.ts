@@ -9,4 +9,4 @@ export * from './round.js';
 export * from './pot.js';
 export * from './settlement.js';
 export * from './hand-flow.js';
-
+export * from './next-hand.js';
