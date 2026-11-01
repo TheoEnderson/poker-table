@@ -69,7 +69,9 @@ export function PlayerCard({
 
       {/* Indicadores de Ação */}
       <div className="card-status-bar">
-        {isFolded ? (
+        {isSettled && currentChips === 0 ? (
+          <span className="action-tag tag-eliminated">ELIMINADO</span>
+        ) : isFolded ? (
           <span className="action-tag tag-fold">FOLD</span>
         ) : isAllIn ? (
           <span className="action-tag tag-allin">ALL-IN</span>

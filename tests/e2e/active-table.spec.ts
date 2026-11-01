@@ -1183,4 +1183,711 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await guestContext.close();
     }
   });
+
+  test('host selects showdown winner via UI, settles hand, reviews results and starts next hand (Etapa 4D)', async ({ page, browser, request }) => {
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Alice Host',
+        config: { name: 'Mesa Showdown UI', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Bob Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // 3. Host session
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // 4. Guest session
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      // Sit host at seat 1
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+      await expect(page2.getByLabel('Mesa de jogo ativa')).toBeVisible();
+
+      // --- Preflop: Alice (SB) calls, Bob (BB) checks ---
+      await page.locator('.action-btn-call').click();
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+
+      // Advance to Flop
+      const flopBtn = page.locator('.host-street-controls .host-advance-btn');
+      await flopBtn.click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
+
+      // Flop: Bob checks, Alice checks
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Advance to Turn
+      const turnBtn = page.locator('.host-street-controls .host-advance-btn');
+      await turnBtn.click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
+
+      // Turn: Bob checks, Alice checks
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Advance to River
+      const riverBtn = page.locator('.host-street-controls .host-advance-btn');
+      await riverBtn.click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
+
+      // River: Bob checks, Alice checks
+      await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
+      await page.locator('.action-btn-check').click();
+
+      // Advance to Showdown
+      const showdownBtn = page.locator('.host-street-controls .host-advance-btn');
+      await showdownBtn.click();
+
+      // --- SHOWDOWN STATE ---
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+      await expect(page2.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // Guest sees waiting message and NO admin controls
+      await expect(page2.getByText('Showdown: cartas na mesa. Aguardando a distribuição dos prêmios.')).toBeVisible();
+      await expect(page2.locator('.host-settlement-controls')).toHaveCount(0);
+
+      // Host sees HostSettlementControls in showdown mode
+      const hostShowdown = page.locator('.host-settlement-controls.host-showdown-panel');
+      await expect(hostShowdown).toBeVisible();
+      await expect(hostShowdown.locator('.pot-box-title', { hasText: 'Pote Principal' })).toBeVisible();
+
+      // Confirm button is disabled before selecting a winner
+      const settleBtn = hostShowdown.locator('.settle-showdown-btn');
+      await expect(settleBtn).toBeDisabled();
+
+      // Host selects Alice Host as winner
+      const aliceWinnerBtn = hostShowdown.locator('.candidate-winner-btn', { hasText: 'Alice Host' });
+      await aliceWinnerBtn.click();
+      await expect(aliceWinnerBtn).toHaveClass(/candidate-selected/);
+      await expect(hostShowdown.getByText('✓ Definido')).toBeVisible();
+      await expect(settleBtn).toBeEnabled();
+
+      // Host clicks Confirmar Liquidação -> Confirmation Modal opens
+      await settleBtn.click();
+      const confirmModal = page.locator('dialog[open]');
+      await expect(confirmModal).toBeVisible();
+      await expect(confirmModal.locator('h2')).toHaveText('Confirmar Liquidação do Showdown?');
+      await expect(confirmModal.locator('p')).toContainText('Pote Principal');
+      await expect(confirmModal.locator('p')).toContainText('Alice Host');
+
+      // Confirm settlement
+      await confirmModal.getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // --- RESULTS PRESENTATION ---
+      // Both browsers show SettlementBanner
+      await expect(page.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page2.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page.getByText('MÃO LIQUIDADA', { exact: true })).toBeVisible();
+      await expect(page.getByText('POTE DISTRIBUÍDO', { exact: true })).toBeVisible();
+
+      // Alice won 40, stack is 1020; Bob has 980
+      await expect(page.locator('.my-stack-amount')).toContainText('1.020');
+      await expect(page2.locator('.my-stack-amount')).toContainText('980');
+
+      // --- NEXT HAND ---
+      // Host sees "Iniciar Próxima Mão"
+      const nextHandBtn = page.locator('.host-settlement-controls .next-hand-btn');
+      await expect(nextHandBtn).toBeVisible();
+
+      // Guest sees waiting message
+      await expect(page2.getByText('Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.')).toBeVisible();
+
+      // Host clicks next hand
+      await nextHandBtn.click();
+
+      // Hand 2 begins!
+      await expect(page.getByText('PRÉ-FLOP', { exact: true })).toBeVisible();
+      await expect(page2.getByText('PRÉ-FLOP', { exact: true })).toBeVisible();
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('host settles fold-ended hand via UI and confirms prize distribution (Etapa 4D)', async ({ page, browser, request }) => {
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Carlos Host',
+        config: { name: 'Mesa Fold UI', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Diana Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // 3. Host session
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // 4. Guest session
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
+
+      // Carlos (SB) folds
+      await page.locator('.action-btn-fold').click();
+      const foldDialog = page.locator('dialog[open]');
+      await foldDialog.getByRole('button', { name: 'Desistir da mão' }).click();
+
+      // Hand ended by fold!
+      await expect(page.getByText('MÃO ENCERRADA', { exact: true })).toBeVisible();
+      await expect(page2.getByText('MÃO ENCERRADA', { exact: true })).toBeVisible();
+
+      // Host sees fold settlement card with survivor Diana Guest
+      const foldCard = page.locator('.host-settlement-controls.host-fold-settlement');
+      await expect(foldCard).toBeVisible();
+      await expect(foldCard.locator('.winner-name')).toContainText('Diana Guest');
+
+      // Host clicks Confirmar distribuição das fichas
+      const settleFoldBtn = foldCard.locator('.settle-fold-btn');
+      await settleFoldBtn.click();
+
+      const confirmModal = page.locator('dialog[open]');
+      await expect(confirmModal).toBeVisible();
+      await expect(confirmModal.locator('h2')).toHaveText('Confirmar Distribuição das Fichas?');
+      await expect(confirmModal.locator('p')).toContainText('Diana Guest');
+
+      // Confirm
+      await confirmModal.getByRole('button', { name: 'Confirmar Distribuição' }).click();
+
+      // Hand is settled!
+      await expect(page.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page2.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page2.locator('.settlement-banner')).toContainText('Diana Guest');
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('host declares showdown tie (split pot) via UI with multiple winners (Etapa 4D)', async ({ page, browser, request }) => {
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Eduardo Host',
+        config: { name: 'Mesa Tie UI', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Fabiola Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // 3. Host session
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // 4. Guest session
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      // Preflop: call, check
+      await page.locator('.action-btn-call').click();
+      await page2.locator('.action-btn-check').click();
+
+      // Advance through streets
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+      await page2.locator('.action-btn-check').click();
+      await page.locator('.action-btn-check').click();
+
+      // Showdown
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // Enable Tie mode
+      const hostShowdown = page.locator('.host-settlement-controls.host-showdown-panel');
+      const tieCheckbox = hostShowdown.locator('input[type="checkbox"]');
+      await tieCheckbox.check();
+
+      // Select both candidates
+      const eduardoBtn = hostShowdown.locator('.candidate-winner-btn', { hasText: 'Eduardo Host' });
+      const fabiolaBtn = hostShowdown.locator('.candidate-winner-btn', { hasText: 'Fabiola Guest' });
+      await eduardoBtn.click();
+      await fabiolaBtn.click();
+
+      // Shows tie resolution pill
+      await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
+
+      // Verify repeated alternation of tieMode (pure toggleTie function):
+      // 1. Uncheck tie mode -> only 1 winner should remain selected, tie pill disappears
+      await tieCheckbox.uncheck();
+      await expect(hostShowdown.getByText('⚖️ Empate (2)')).not.toBeVisible();
+      await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(1);
+
+      // 2. Re-check tie mode -> both can be selected again
+      await tieCheckbox.check();
+      if (!(await eduardoBtn.evaluate(el => el.classList.contains('candidate-selected')))) {
+        await eduardoBtn.click();
+      } else {
+        await fabiolaBtn.click();
+      }
+      await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
+      await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(2);
+
+      // 3. Toggle once more to confirm stability of repeated pure updates
+      await tieCheckbox.uncheck();
+      await expect(hostShowdown.locator('.candidate-winner-btn.candidate-selected')).toHaveCount(1);
+      await tieCheckbox.check();
+      if (!(await eduardoBtn.evaluate(el => el.classList.contains('candidate-selected')))) {
+        await eduardoBtn.click();
+      } else {
+        await fabiolaBtn.click();
+      }
+      await expect(hostShowdown.getByText('⚖️ Empate (2)')).toBeVisible();
+
+      // Confirm
+      await hostShowdown.locator('.settle-showdown-btn').click();
+      const confirmModal = page.locator('dialog[open]');
+      await expect(confirmModal).toBeVisible();
+      await expect(confirmModal.locator('p')).toContainText('Empate');
+      await confirmModal.getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // Verify split pot in SettlementBanner
+      await expect(page.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page.locator('.settlement-banner')).toContainText('Vencedores (Empate)');
+      await expect(page.locator('.settlement-banner')).toContainText('Eduardo Host');
+      await expect(page.locator('.settlement-banner')).toContainText('Fabiola Guest');
+      // Both stacks return to 1000
+      await expect(page.locator('.my-stack-amount')).toContainText('1.000');
+      await expect(page2.locator('.my-stack-amount')).toContainText('1.000');
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('host sees early showdown guidance when hand enters showdown before river due to all-in (Etapa 4D)', async ({ page, browser, request }) => {
+    // 1. Create room
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Gustavo Host',
+        config: { name: 'Mesa Early Showdown', maxPlayers: 4, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Guest joins
+    const joinRes = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Helena Guest', seat: 2 },
+    });
+    const guestReply = (await joinRes.json()) as Reply<Admission>;
+    if (!guestReply.ok) throw new Error(guestReply.error.message);
+    const guest = guestReply.data;
+
+    // 3. Host session
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // 4. Guest session
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: guest.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    try {
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      // Preflop: Host (SB/dealer in heads up) clicks All-in
+      await page.locator('.action-btn-allin').click();
+      const hostDialog = page.locator('dialog[open]');
+      await hostDialog.getByRole('button', { name: 'Confirmar All-in' }).click();
+
+      // Guest (BB) calls all-in
+      await page2.locator('.action-btn-call').click();
+      const guestDialog = page2.locator('dialog[open]');
+      await guestDialog.getByRole('button', { name: 'Confirmar All-in' }).click();
+
+      // Both players are all-in preflop -> Hand immediately enters showdown without river street
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+      await expect(page2.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // Verify early showdown orientation notice on host screen
+      const notice = page.locator('.early-showdown-notice');
+      await expect(notice).toBeVisible();
+      await expect(notice).toContainText('Showdown antecipado por All-in');
+      await expect(notice).toContainText('Revele todas as cartas comunitárias restantes na mesa física antes de declarar os vencedores.');
+
+      // Host declares winner and confirms
+      const hostShowdown = page.locator('.host-settlement-controls.host-showdown-panel');
+      const gustavoBtn = hostShowdown.locator('.candidate-winner-btn', { hasText: 'Gustavo Host' });
+      await gustavoBtn.click();
+      await hostShowdown.locator('.settle-showdown-btn').click();
+
+      const confirmModal = page.locator('dialog[open]');
+      await expect(confirmModal).toBeVisible();
+      await confirmModal.getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // Settlement banner visible and stacks updated (tournament ends because Helena is eliminated)
+      await expect(page.getByText('🏆 Fim de Partida')).toBeVisible();
+      await expect(page.getByText('Gustavo Host venceu a partida!')).toBeVisible();
+      await expect(page.locator('.my-stack-amount')).toContainText('2.000');
+      await expect(page2.locator('.my-stack-amount')).toContainText('0');
+    } finally {
+      await guestContext.close();
+    }
+  });
+
+  test('host manages multiway hand with real side pots, selects distinct winners per pot via UI, and synchronizes final stacks (Etapa 4D)', async ({ page, browser, request }) => {
+    // 1. Create room for 3 players
+    const createRes = await request.post('/api/rooms', {
+      data: {
+        hostName: 'Carlos Host',
+        config: { name: 'Mesa Side Pots E2E', maxPlayers: 3, startingChips: 1000, smallBlind: 10, bigBlind: 20 },
+      },
+    });
+    const hostReply = (await createRes.json()) as Reply<Admission>;
+    if (!hostReply.ok) throw new Error(hostReply.error.message);
+    const host = hostReply.data;
+
+    // 2. Join Guest 1 (Seat 2) and Guest 2 (Seat 3)
+    const g1Res = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Daniela G1', seat: 2 },
+    });
+    const g1Reply = (await g1Res.json()) as Reply<Admission>;
+    if (!g1Reply.ok) throw new Error(g1Reply.error.message);
+    const g1 = g1Reply.data;
+
+    const g2Res = await request.post(`/api/rooms/${host.room.code}/join`, {
+      data: { name: 'Eduardo G2', seat: 3 },
+    });
+    const g2Reply = (await g2Res.json()) as Reply<Admission>;
+    if (!g2Reply.ok) throw new Error(g2Reply.error.message);
+    const g2 = g2Reply.data;
+
+    // 3. Set up contexts for all 3 players
+    // Host: page
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: host.credentials },
+    );
+    await page.goto(`/room/${host.room.code}`);
+
+    // Guest 1: page2
+    const g1Context = await browser.newContext();
+    const page2 = await g1Context.newPage();
+    await page2.setViewportSize({ width: 390, height: 844 });
+    await page2.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: g1.credentials },
+    );
+    await page2.goto(`/room/${host.room.code}`);
+
+    // Guest 2: page3
+    const g2Context = await browser.newContext();
+    const page3 = await g2Context.newPage();
+    await page3.setViewportSize({ width: 390, height: 844 });
+    await page3.addInitScript(
+      ({ code, credentials }) => {
+        localStorage.setItem(`poker-table.session.v1.${code}`, JSON.stringify(credentials));
+      },
+      { code: host.room.code, credentials: g2.credentials },
+    );
+    await page3.goto(`/room/${host.room.code}`);
+
+    try {
+      // Sit host at seat 1
+      await page.getByRole('button', { name: 'Posição 1, disponível' }).click();
+      const startBtn = page.locator('.lobby-host-action button.lobby-start-btn');
+      await expect(startBtn).toBeVisible();
+      await startBtn.click();
+
+      // Hand 1 starts:
+      // Carlos is Seat 1 (Dealer)
+      // Daniela is Seat 2 (SB: 10)
+      // Eduardo is Seat 3 (BB: 20)
+      // Action is on Carlos (Dealer) -> Carlos folds
+      await page.locator('.action-btn-fold').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Desistir da mão' }).click();
+
+      // Daniela (SB) raises to 800
+      await page2.locator('.action-btn-raise').click();
+      const raiseCtrl1 = page2.locator('.raise-control');
+      await raiseCtrl1.locator('.raise-input').fill('800');
+      await raiseCtrl1.locator('.raise-btn-confirm').click();
+
+      // Eduardo (BB) calls 800
+      await page3.locator('.action-btn-call').click();
+
+      // Preflop round completed! Host advances street to Flop
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+
+      // Daniela checks, Eduardo checks
+      await page2.locator('.action-btn-check').click();
+      await page3.locator('.action-btn-check').click();
+
+      // Host advances to Turn
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+
+      // Daniela checks, Eduardo checks
+      await page2.locator('.action-btn-check').click();
+      await page3.locator('.action-btn-check').click();
+
+      // Host advances to River
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+
+      // Daniela checks, Eduardo checks
+      await page2.locator('.action-btn-check').click();
+      await page3.locator('.action-btn-check').click();
+
+      // Host advances to Showdown
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // Settle Hand 1: Daniela wins 1600 chips
+      const h1Panel = page.locator('.host-settlement-controls.host-showdown-panel');
+      await h1Panel.locator('.candidate-winner-btn', { hasText: 'Daniela G1' }).click();
+      await h1Panel.locator('.settle-showdown-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // Hand 1 settled: Daniela has 1800 chips, Eduardo has 200 chips, Carlos has 1000 chips
+      await expect(page2.locator('.my-stack-amount')).toContainText('1.800');
+      await expect(page3.locator('.my-stack-amount')).toContainText('200');
+      await expect(page.locator('.my-stack-amount')).toContainText('1.000');
+
+      // Host starts Hand 2
+      await page.locator('.next-hand-btn').click();
+
+      // Hand 2 starts!
+      // In Hand 2:
+      // Dealer rotates to Seat 2 (Daniela G1, stack 1800)
+      // SB is Seat 3 (Eduardo G2, stack 200 -> posts SB 10 -> stack 190, committed 10)
+      // BB is Seat 1 (Carlos Host, stack 1000 -> posts BB 20 -> stack 980, committed 20)
+      // Action is on Daniela (Dealer): raises to 500
+      await expect(page2.locator('.action-btn-raise')).toBeVisible();
+      await page2.locator('.action-btn-raise').click();
+      const raiseCtrl2 = page2.locator('.raise-control');
+      await raiseCtrl2.locator('.raise-input').fill('500');
+      await raiseCtrl2.locator('.raise-btn-confirm').click();
+
+      // Action is on Eduardo (SB, stack 190): calls with remaining 190 chips (All-in)
+      const eduardoCallBtn = page3.locator('.action-btn-call');
+      await expect(eduardoCallBtn).toBeVisible();
+      await expect(eduardoCallBtn).toContainText('(All-in)');
+      await eduardoCallBtn.click();
+      await page3.locator('dialog[open]').getByRole('button', { name: 'Confirmar All-in' }).click();
+
+      // Action is on Carlos (BB, stack 980): calls 500
+      await expect(page.locator('.action-btn-call')).toBeVisible();
+      await page.locator('.action-btn-call').click();
+
+      // Preflop round completed!
+      // Host advances through streets to Showdown:
+      // Flop:
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+      // Eduardo is all-in, so action is between Carlos and Daniela
+      await page.locator('.action-btn-check').click();
+      await page2.locator('.action-btn-check').click();
+
+      // Turn:
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+      await page.locator('.action-btn-check').click();
+      await page2.locator('.action-btn-check').click();
+
+      // River:
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+      await page.locator('.action-btn-check').click();
+      await page2.locator('.action-btn-check').click();
+
+      // Showdown:
+      await page.locator('.host-street-controls .host-advance-btn').click();
+      await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
+
+      // Now verify UI with real Main Pot and Side Pot:
+      const showdownPanel = page.locator('.host-settlement-controls.host-showdown-panel');
+      const potBoxes = showdownPanel.locator('.showdown-pot-box');
+      await expect(potBoxes).toHaveCount(2);
+
+      // Pot 1: Main Pot (600 chips)
+      const mainPotBox = potBoxes.nth(0);
+      await expect(mainPotBox.locator('.pot-box-title')).toHaveText('Pote Principal');
+      await expect(mainPotBox.locator('.pot-box-amount')).toContainText('600');
+      // All 3 players are eligible for Main Pot
+      await expect(mainPotBox.locator('.candidate-winner-btn')).toHaveCount(3);
+      await expect(mainPotBox.locator('.candidate-winner-btn', { hasText: 'Carlos Host' })).toBeVisible();
+      await expect(mainPotBox.locator('.candidate-winner-btn', { hasText: 'Daniela G1' })).toBeVisible();
+      await expect(mainPotBox.locator('.candidate-winner-btn', { hasText: 'Eduardo G2' })).toBeVisible();
+
+      // Pot 2: Side Pot 1 (600 chips)
+      const sidePotBox = potBoxes.nth(1);
+      await expect(sidePotBox.locator('.pot-box-title')).toHaveText('Pote Paralelo 1');
+      await expect(sidePotBox.locator('.pot-box-amount')).toContainText('600');
+      // Only Carlos and Daniela are eligible for Side Pot 1 (Eduardo is NOT eligible!)
+      await expect(sidePotBox.locator('.candidate-winner-btn')).toHaveCount(2);
+      await expect(sidePotBox.locator('.candidate-winner-btn', { hasText: 'Carlos Host' })).toBeVisible();
+      await expect(sidePotBox.locator('.candidate-winner-btn', { hasText: 'Daniela G1' })).toBeVisible();
+      await expect(sidePotBox.locator('.candidate-winner-btn', { hasText: 'Eduardo G2' })).toHaveCount(0);
+
+      // Select distinct winners:
+      // Eduardo G2 wins Main Pot (600)
+      await mainPotBox.locator('.candidate-winner-btn', { hasText: 'Eduardo G2' }).click();
+      // Carlos Host wins Side Pot 1 (600)
+      await sidePotBox.locator('.candidate-winner-btn', { hasText: 'Carlos Host' }).click();
+
+      // Click "Confirmar vencedores"
+      await showdownPanel.locator('.settle-showdown-btn').click();
+
+      // Verify confirmation summary dialog discriminates both pots
+      const confirmDialog = page.locator('dialog[open]');
+      await expect(confirmDialog).toBeVisible();
+      await expect(confirmDialog.locator('h2')).toHaveText('Confirmar Liquidação do Showdown?');
+      await expect(confirmDialog.locator('p')).toContainText('Pote Principal (600 fichas): Eduardo G2 (#3)');
+      await expect(confirmDialog.locator('p')).toContainText('Pote Paralelo 1 (600 fichas): Carlos Host (#1)');
+
+      // Confirm settlement
+      await confirmDialog.getByRole('button', { name: 'Confirmar Liquidação' }).click();
+
+      // Verify settlement banner appears in all browsers
+      await expect(page.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page2.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+      await expect(page3.getByText('Resultado da Mão', { exact: true })).toBeVisible();
+
+      // Verify final synchronized stacks across all browsers:
+      // Eduardo: 600
+      // Carlos: 1100 (500 remaining + 600 side pot)
+      // Daniela: 1300 (1800 - 500)
+      // Total chips: 600 + 1100 + 1300 = 3000 (Exact chip conservation!)
+      await expect(page.locator('.my-stack-amount')).toContainText('1.100');
+      await expect(page2.locator('.my-stack-amount')).toContainText('1.300');
+      await expect(page3.locator('.my-stack-amount')).toContainText('600');
+    } finally {
+      await g1Context.close();
+      await g2Context.close();
+    }
+  });
 });

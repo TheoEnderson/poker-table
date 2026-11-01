@@ -6,6 +6,7 @@ import { MyStatusPanel } from './MyStatusPanel';
 import { ActionDock } from './ActionDock';
 import { SettlementBanner } from './SettlementBanner';
 import { HostStreetControls } from './HostStreetControls';
+import { HostSettlementControls } from './HostSettlementControls';
 
 export function ActiveTable({
   room,
@@ -80,6 +81,16 @@ export function ActiveTable({
 
       {/* 6. Controles Administrativos de Street (Exclusivo do Anfitrião) */}
       <HostStreetControls
+        game={game}
+        room={room}
+        selfId={selfId}
+        command={command}
+        pending={pending}
+        disabled={disabled}
+      />
+
+      {/* 6B. Controles de Liquidação e Próxima Mão (Exclusivo do Anfitrião) */}
+      <HostSettlementControls
         game={game}
         room={room}
         selfId={selfId}

@@ -154,4 +154,3 @@ describe('Etapa 4C: Avanço de Streets e Controles do Anfitrião', () => {
     expect(sync2.game?.hand.street).toBe('flop');
   });
 });
-

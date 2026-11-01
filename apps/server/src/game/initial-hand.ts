@@ -1,4 +1,4 @@
-import { canAdvanceStreet, EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
+import { buildPots, canAdvanceStreet, EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
 import { configSchema, gameStateSchema, handSnapshotSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 import { publicSettlement } from './settlement.js';
@@ -25,6 +25,10 @@ export function initializeHand(players: RoomState['players'], input: RoomConfig)
 
 export function publicHand(hand: HandFlowState) {
   const allowed = hand.status === 'in_progress' ? getAllowedActions(hand) : null;
+  const isEndState = hand.status === 'showdown' || hand.status === 'hand_ended_by_fold';
+  const pots = isEndState ? buildPots(hand) : undefined;
+  const survivorId = hand.survivorId ?? (hand.status === 'hand_ended_by_fold' ? hand.players.find(p => !p.folded)?.id ?? null : null);
+
   return handSnapshotSchema.parse({
     street: hand.street, status: hand.status,
     players: hand.players.map(p => ({
@@ -36,6 +40,14 @@ export function publicHand(hand: HandFlowState) {
     currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
     allowedActions: allowed,
     canAdvanceStreet: canAdvanceStreet(hand),
+    pots: pots?.map(pot => ({
+      id: pot.id,
+      type: pot.type,
+      index: pot.index,
+      amount: pot.amount,
+      eligiblePlayers: [...pot.eligiblePlayers],
+    })),
+    survivorId,
   });
 }
 

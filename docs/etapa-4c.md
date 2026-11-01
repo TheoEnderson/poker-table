@@ -120,4 +120,3 @@ Em `tests/e2e/active-table.spec.ts`, foram adicionados e refinados dois testes c
    - Liquidação autoritativa pelo anfitrião (`settle-hand`), verificando renderização estável em `hand-settled`.
    - Validação de que nenhuma violação das Regras de Hooks (`Rendered fewer/more hooks than expected`) ocorre durante as mudanças de fase.
    - Início de nova mão (`next-hand`), validando o ciclo de vida completo sem degradação.
-

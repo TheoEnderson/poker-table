@@ -17,6 +17,7 @@ export function SettlementBanner({
   const winner = isComplete
     ? room.players.find(p => p.id === game.winnerId)
     : null;
+  const eliminatedPlayers = settlement.players.filter(p => p.chips === 0);
 
   return (
     <section className="settlement-banner" aria-label="Resumo dos prêmios">
@@ -43,18 +44,35 @@ export function SettlementBanner({
           const winnerNames = pot.winners
             .map(id => room.players.find(p => p.id === id)?.name ?? 'Jogador')
             .join(', ');
+          const winnerLabel = pot.winners.length > 1 ? 'Vencedores (Empate)' : 'Vencedor';
 
           return (
             <div key={pot.potId} className="pot-award-row">
               <div className="pot-award-info">
                 <strong>{potTitle}</strong>
-                <span>Vencedor: {winnerNames}</span>
+                <span>{winnerLabel}: {winnerNames}</span>
               </div>
               <ChipAmount value={pot.potAmount} size="sm" className="pot-award-amount" />
             </div>
           );
         })}
       </div>
+
+      {eliminatedPlayers.length > 0 && (
+        <div className="settlement-eliminated-section">
+          <span className="eliminated-heading">Jogadores eliminados:</span>
+          <div className="eliminated-tags-list">
+            {eliminatedPlayers.map(p => {
+              const name = room.players.find(rp => rp.id === p.id)?.name ?? `Assento ${p.seat}`;
+              return (
+                <span key={p.id} className="eliminated-player-pill">
+                  #{p.seat} {name} (eliminado)
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

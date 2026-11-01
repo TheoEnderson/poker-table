@@ -21,6 +21,15 @@ export const allowedActionsSchema = z.strictObject({
 });
 export type AllowedActions = z.infer<typeof allowedActionsSchema>;
 
+export const potSnapshotSchema = z.strictObject({
+  id: z.string().trim().min(1),
+  type: z.enum(['main', 'side']),
+  index: z.number().int().nonnegative(),
+  amount: chips,
+  eligiblePlayers: z.array(z.uuid()),
+});
+export type PotSnapshot = z.infer<typeof potSnapshotSchema>;
+
 // Public projection only. Engine bookkeeping and credentials never cross this boundary.
 export const handSnapshotSchema = z.strictObject({
   street: z.enum(['preflop', 'flop', 'turn', 'river']),
@@ -34,16 +43,10 @@ export const handSnapshotSchema = z.strictObject({
   currentActorId: z.uuid().nullable(), playersToAct: z.array(z.uuid()).max(10),
   allowedActions: allowedActionsSchema.nullable().optional(),
   canAdvanceStreet: z.boolean().optional(),
+  pots: z.array(potSnapshotSchema).optional(),
+  survivorId: z.uuid().nullable().optional(),
 });
 export type HandSnapshot = z.infer<typeof handSnapshotSchema>;
-
-export const potSnapshotSchema = z.strictObject({
-  id: z.string().trim().min(1),
-  type: z.enum(['main', 'side']),
-  index: z.number().int().nonnegative(),
-  amount: chips,
-  eligiblePlayers: z.array(z.uuid()),
-});
 
 export const playerPotAwardSnapshotSchema = z.strictObject({
   playerId: z.uuid(),
