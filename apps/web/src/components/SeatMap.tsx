@@ -1,6 +1,6 @@
 import type { RoomState } from '@poker-table/protocol';
 export function SeatMap({ room, selfId, disabled, onSelect }: { room: RoomState; selfId?: string; disabled: boolean; onSelect: (seat: number) => void }) {
-  return <div className="seat-map" aria-label="Posições ao redor da mesa"><div className="felt"><span className="felt-symbol" aria-hidden="true">♠</span><span>POKER TABLE</span><small>Escolha seu lugar</small></div>{Array.from({ length: room.config.maxPlayers }, (_, i) => {
+  return <div className="seat-map" aria-label="Posições ao redor da mesa"><div className="felt"><span className="felt-symbol" aria-hidden="true">♠</span><span>POKER TABLE</span><small>{room.game ? 'Assentos reservados' : 'Escolha seu lugar'}</small></div>{Array.from({ length: room.config.maxPlayers }, (_, i) => {
     const seat = i + 1, player = room.players.find(p => p.seat === seat), mine = player?.id === selfId;
     const angle = 2 * Math.PI * i / room.config.maxPlayers;
     return <button key={seat} className={`seat ${player ? 'occupied' : 'empty'} ${mine ? 'mine' : ''}`} style={{ left: `${50 + 35 * Math.sin(angle)}%`, top: `${50 - 40 * Math.cos(angle)}%` }}

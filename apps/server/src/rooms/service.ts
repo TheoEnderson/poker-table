@@ -2,8 +2,10 @@ import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 
 import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, type Admission, type Credentials, type RoomState } from '@poker-table/protocol';
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
+import { initializeHand, publicGame } from '../game/initial-hand.js';
+import { decodeHand, encodeHand } from '../persistence/hand.js';
 
-type RoomRow = { id: string; code: string; config: string; host_id: string; admin_hash: string; revision: number; closed: number };
+type RoomRow = { id: string; code: string; config: string; host_id: string; admin_hash: string; revision: number; closed: number; game: string | null };
 type PlayerRow = { id: string; room_id: string; name: string; seat: number | null; session_hash: string };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const token = () => randomBytes(32).toString('hex');
@@ -22,12 +24,18 @@ export class RoomService {
     return this.store.db.prepare('SELECT * FROM participants WHERE room_id=? ORDER BY joined_at, id').all(id) as PlayerRow[];
   }
   private open(row: RoomRow) { if (row.closed) throw new RoomError('ROOM_CLOSED', 'Esta mesa foi encerrada.'); }
+  private preparing(row: RoomRow) { if (row.game !== null) throw new RoomError('GAME_IN_PROGRESS', 'A partida já começou. Os participantes e assentos da mão estão reservados.'); }
+  private admin(c: Credentials, row: RoomRow) {
+    if (c.playerId !== row.host_id || !c.adminToken || !matches(c.adminToken, row.admin_hash)) throw new RoomError('FORBIDDEN', 'Somente o anfitrião com sua credencial administrativa pode executar esta operação.');
+  }
   private bump(id: string) { this.store.db.prepare('UPDATE rooms SET revision=revision+1 WHERE id=?').run(id); }
   state(id: string): RoomState {
     const row = this.row(id);
+    const config = configSchema.parse(JSON.parse(row.config)), players = this.players(id);
     return {
-      id: row.id, code: row.code, config: configSchema.parse(JSON.parse(row.config)), revision: row.revision, closed: !!row.closed,
-      players: this.players(id).map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
+      id: row.id, code: row.code, config, revision: row.revision, closed: !!row.closed,
+      players: players.map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
+      game: row.game === null ? null : publicGame(decodeHand(row.game, config, players)),
     };
   }
   find(code: unknown): RoomState {
@@ -54,7 +62,9 @@ export class RoomService {
     const data = joinRoomSchema.parse(input), room = this.find(code);
     const playerId = randomUUID(), sessionToken = token();
     this.store.transaction(() => {
-      this.open(this.row(room.id));
+      const row = this.row(room.id);
+      this.open(row);
+      this.preparing(row);
       if (this.players(room.id).length >= room.config.maxPlayers) throw new RoomError('ROOM_FULL', 'A mesa está cheia. Jogadores desconectados mantêm sua vaga.');
       this.available(room.id, data.seat ?? null);
       this.store.db.prepare('INSERT INTO participants(id,room_id,name,seat,session_hash,joined_at) VALUES(?,?,?,?,?,?)')
@@ -106,6 +116,7 @@ export class RoomService {
       if (expectedRevision !== row.revision) throw new RoomError('STALE_STATE', 'A mesa mudou. O estado foi atualizado; confira e tente novamente.');
       switch (command.type) {
         case 'select-seat':
+          this.preparing(row);
           this.available(c.roomId, command.seat, c.playerId);
           this.store.db.prepare('UPDATE participants SET seat=? WHERE id=?').run(command.seat, c.playerId);
           break;
@@ -113,13 +124,22 @@ export class RoomService {
           this.store.db.prepare('UPDATE participants SET name=? WHERE id=?').run(command.name, c.playerId);
           break;
         case 'leave':
+          if (row.game !== null && this.state(c.roomId).game!.hand.players.some(p => p.id === c.playerId)) this.preparing(row);
           if (c.playerId === row.host_id) throw new RoomError('HOST_MUST_CLOSE', 'O anfitrião pode fechar o navegador ou encerrar a mesa para todos.');
           this.store.db.prepare('DELETE FROM participants WHERE id=?').run(c.playerId);
           break;
         case 'close-room':
-          if (c.playerId !== row.host_id || !c.adminToken || !matches(c.adminToken, row.admin_hash)) throw new RoomError('FORBIDDEN', 'Somente o anfitrião com sua credencial administrativa pode encerrar a mesa.');
+          this.admin(c, row);
           this.store.db.prepare('UPDATE rooms SET closed=1 WHERE id=?').run(c.roomId);
           break;
+        case 'start-game': {
+          this.admin(c, row);
+          if (row.game !== null) throw new RoomError('GAME_ALREADY_STARTED', 'Esta sala já possui uma partida iniciada.');
+          const state = this.state(c.roomId);
+          const hand = initializeHand(state.players, state.config);
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players), c.roomId);
+          break;
+        }
       }
       this.store.db.prepare('INSERT INTO commands(room_id,player_id,command_id,fingerprint) VALUES(?,?,?,?)').run(c.roomId, c.playerId, commandId, fingerprint);
       this.bump(c.roomId);

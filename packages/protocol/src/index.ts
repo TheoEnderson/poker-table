@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { gameStateSchema } from './game.js';
+export { gameStateSchema, handSnapshotSchema, type GameState } from './game.js';
 
 export const PROTOCOL_VERSION = 1 as const;
 // eslint-disable-next-line no-control-regex -- Rejeita caracteres de controle nos nomes dos jogadores.
@@ -26,19 +28,21 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('rename'), name: displayName }),
   z.strictObject({ ...commandBase, type: z.literal('leave') }),
   z.strictObject({ ...commandBase, type: z.literal('close-room') }),
+  // Uses the host's already validated room configuration, never client-supplied players.
+  z.strictObject({ ...commandBase, type: z.literal('start-game') }),
 ]);
 
 export const participantSchema = z.strictObject({ id: z.uuid(), name: displayName, seat: z.number().int().nullable(), connected: z.boolean(), isHost: z.boolean() });
 export const roomStateSchema = z.strictObject({
   id: z.uuid(), code: roomCode, config: configSchema, revision: z.number().int().nonnegative(),
-  closed: z.boolean(), players: z.array(participantSchema),
+  closed: z.boolean(), players: z.array(participantSchema), game: gameStateSchema.nullable(),
 });
 export type RoomConfig = z.infer<typeof configSchema>;
 export type Credentials = z.infer<typeof credentialsSchema>;
 export type RoomState = z.infer<typeof roomStateSchema>;
 export type Command = z.infer<typeof commandSchema>;
-export type CommandInput = { type: 'select-seat'; seat: number | null } | { type: 'rename'; name: string } | { type: 'leave' } | { type: 'close-room' };
-export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'ROOM_FULL' | 'SEAT_TAKEN' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'STALE_STATE' | 'ROOM_CLOSED' | 'HOST_MUST_CLOSE' | 'STORAGE_ERROR' | 'RATE_LIMITED' | 'COMMAND_CONFLICT';
+export type CommandInput = { type: 'select-seat'; seat: number | null } | { type: 'rename'; name: string } | { type: 'leave' } | { type: 'close-room' } | { type: 'start-game' };
+export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'ROOM_FULL' | 'SEAT_TAKEN' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'STALE_STATE' | 'ROOM_CLOSED' | 'HOST_MUST_CLOSE' | 'STORAGE_ERROR' | 'RATE_LIMITED' | 'COMMAND_CONFLICT' | 'GAME_ALREADY_STARTED' | 'GAME_IN_PROGRESS' | 'INSUFFICIENT_PLAYERS' | 'PLAYERS_DISCONNECTED';
 export type Failure = { ok: false; error: { code: ErrorCode; message: string } };
 export type Reply<T> = { ok: true; data: T } | Failure;
 export type Admission = { credentials: Credentials; room: RoomState };

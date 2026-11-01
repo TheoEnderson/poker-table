@@ -21,6 +21,7 @@ const migrations = [
     command_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
     PRIMARY KEY(room_id, player_id, command_id)
   );`,
+  'ALTER TABLE rooms ADD COLUMN game TEXT;',
 ];
 
 export class Store {
