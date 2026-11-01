@@ -315,4 +315,3 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
     );
   });
 });
-

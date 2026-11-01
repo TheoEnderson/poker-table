@@ -69,4 +69,3 @@ export function settleGameHand(hand: HandFlowState, decisions: readonly PotWinne
     throw error;
   }
 }
-

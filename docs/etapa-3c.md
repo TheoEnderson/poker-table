@@ -98,4 +98,3 @@ O reinício do servidor preserva o estado completo da liquidação e das mãos a
 - O banco recupera o snapshot v3 sem necessitar reprocessar histórico de apostas.
 - Ao reconectar, os clientes recebem o estado sincronizado (`hand-settled`, `hand-active` ou `game-complete`) com os stacks exatos e sem recálculo financeiro.
 - Jogadores eliminados continuam registrados na sala como espectadores/participantes históricos, mas não recebem vez nem participam das novas mãos.
-
