@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#102923</color>
+    <color name="primary_light">#1b4332</color>
+    <color name="accent">#2d6a4f</color>
+    <color name="gold">#d4af37</color>
+    <color name="gold_disabled">#66d4af37</color>
+    <color name="background">#0b1d17</color>
+    <color name="surface">#132e27</color>
+    <color name="text_primary">#f8fafc</color>
+    <color name="text_secondary">#94a3b8</color>
+    <color name="danger">#dc2626</color>
+    <color name="danger_surface">#3b1111</color>
+    <color name="status_running">#22c55e</color>
+    <color name="status_starting">#eab308</color>
+    <color name="status_stopping">#f97316</color>
+    <color name="status_stopped">#94a3b8</color>
+</resources>

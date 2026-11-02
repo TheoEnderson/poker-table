@@ -6,7 +6,7 @@ import { Store } from '../persistence/database.js';
 import { RoomService } from '../rooms/service.js';
 import { attachRealtime } from '../realtime/socket.js';
 import { failure, RoomError } from '../errors.js';
-import { networkInfo, sameOrigin } from './network.js';
+import { isLoopbackAddress, networkInfo, sameOrigin, setDynamicTarget } from './network.js';
 
 export interface AppOptions { databasePath: string; webDirectory?: string }
 export function createApplication(options: AppOptions) {
@@ -36,6 +36,15 @@ export function createApplication(options: AppOptions) {
     next();
   });
   app.get('/api/network', (_req, res) => res.json({ ok: true, data: networkInfo((http.address() as AddressInfo).port) }));
+  app.post('/api/network/target', (req, res) => {
+    if (!isLoopbackAddress(req.socket.remoteAddress)) {
+      return res.status(403).json(failure(new RoomError('FORBIDDEN', 'Configuração de rede restrita ao dispositivo anfitrião local.')));
+    }
+    const target = typeof req.body?.target === 'string' ? req.body.target.trim() : undefined;
+    setDynamicTarget(target);
+    const netInfo = networkInfo((http.address() as AddressInfo).port);
+    res.json({ ok: true, data: netInfo });
+  });
   app.post('/api/rooms', (req, res) => res.status(201).json({ ok: true, data: rooms.create(req.body) }));
   app.get('/api/rooms/:code', (req, res) => res.json({ ok: true, data: rooms.find(req.params.code) }));
   app.post('/api/rooms/:code/join', (req, res) => {

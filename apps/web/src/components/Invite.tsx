@@ -4,25 +4,75 @@ import type { NetworkInfo } from '@poker-table/protocol';
 import { request } from '../lib/api';
 
 export function Invite({ code }: { code: string }) {
-  const [network, setNetwork] = useState<NetworkInfo | null>(null), [origin, setOrigin] = useState(''), [qr, setQr] = useState(''), [error, setError] = useState('');
+  const [network, setNetwork] = useState<NetworkInfo | null>(null);
+  const [origin, setOrigin] = useState('');
+  const [qr, setQr] = useState('');
+  const [error, setError] = useState('');
+
   useEffect(() => {
     let active = true;
-    request<NetworkInfo>('/api/network').then(info => {
+
+    function applyNetwork(info: NetworkInfo) {
       if (!active) return;
       setNetwork(info);
-      const current = info.addresses.find(a => a.address === location.hostname);
-      const preferredPhysical = info.addresses.find(a => !a.isVirtual);
-      setOrigin(current?.url ?? preferredPhysical?.url ?? info.addresses[0]?.url ?? '');
-    }).catch(e => { if (active) setError((e as Error).message); });
-    return () => { active = false; };
+
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const current = isLocalhost ? undefined : info.addresses.find(a => a.address === location.hostname);
+      const preferredPhysical = info.addresses.find(a => !a.isVirtual) ?? info.addresses[0];
+
+      setOrigin(prev => {
+        // Se estiver em localhost/127.0.0.1 (WebView do anfitrião no Android), prioriza sempre o alvo físico da LAN
+        if (isLocalhost) {
+          return preferredPhysical?.url ?? '';
+        }
+        // Para clientes externos (outros aparelhos), mantém escolha manual se ela ainda existir na rede
+        if (prev && info.addresses.some(a => a.url === prev)) {
+          return prev;
+        }
+        return current?.url ?? preferredPhysical?.url ?? '';
+      });
+    }
+
+    function fetchNetwork() {
+      request<NetworkInfo>('/api/network')
+        .then(info => applyNetwork(info))
+        .catch(e => { if (active) setError((e as Error).message); });
+    }
+
+    fetchNetwork();
+
+    const onFocus = () => fetchNetwork();
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchNetwork(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    (window as unknown as { __refreshNetwork?: () => void }).__refreshNetwork = fetchNetwork;
+
+    // Polling suave enquanto o painel estiver aberto para acompanhar mudanças de hotspot
+    const interval = setInterval(fetchNetwork, 4000);
+
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      clearInterval(interval);
+      delete (window as unknown as { __refreshNetwork?: () => void }).__refreshNetwork;
+    };
   }, []);
+
   const link = origin ? `${origin}/join/${code}` : '';
+
   useEffect(() => {
     let active = true;
     setQr('');
-    if (link) void QRCode.toDataURL(link, { width: 220, margin: 2, color: { dark: '#102923', light: '#ffffff' } }).then(value => { if (active) setQr(value); }).catch(() => { if (active) setError('Não foi possível gerar o QR. Use o link abaixo.'); });
+    if (link) {
+      void QRCode.toDataURL(link, { width: 220, margin: 2, color: { dark: '#102923', light: '#ffffff' } })
+        .then(value => { if (active) setQr(value); })
+        .catch(() => { if (active) setError('Não foi possível gerar o QR. Use o link abaixo.'); });
+    }
     return () => { active = false; };
   }, [link]);
+
   const selectedAddress = network?.addresses.find(a => a.url === origin);
   const isVirtualSelected = selectedAddress?.isVirtual === true;
 
@@ -35,7 +85,25 @@ export function Invite({ code }: { code: string }) {
       <p>Todos devem estar no mesmo Wi-Fi. A câmera do celular abre este convite.</p>
       {network && network.addresses.length > 0 && (
         <label>
-          Endereço da rede
+          <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Endereço da rede</span>
+            <button
+              type="button"
+              onClick={() => (window as unknown as { __refreshNetwork?: () => void }).__refreshNetwork?.()}
+              style={{
+                fontSize: '0.75rem',
+                padding: '2px 8px',
+                background: 'transparent',
+                border: '1px solid currentColor',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                color: 'inherit',
+                opacity: 0.8
+              }}
+            >
+              Atualizar redes
+            </button>
+          </span>
           <select value={origin} onChange={e => setOrigin(e.target.value)}>
             {network.addresses.map(a => (
               <option key={a.url} value={a.url}>

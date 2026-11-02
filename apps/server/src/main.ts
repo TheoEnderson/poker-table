@@ -8,7 +8,7 @@ const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT deve ser um inteiro entre 1 e 65535.');
 const app = createApplication({
   databasePath: resolve(process.env.DATABASE_PATH ?? 'data/poker-table.sqlite'),
-  webDirectory: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
+  webDirectory: resolve(process.env.WEB_DIRECTORY ?? fileURLToPath(new URL('../../web/dist/', import.meta.url))),
 });
 try {
   await app.listen(port, process.env.HOST ?? '0.0.0.0');

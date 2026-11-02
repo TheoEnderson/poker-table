@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Poker Table</string>
+    <string name="title_home">Poker Table</string>
+    <string name="subtitle_home">Gerenciador offline de fichas para Texas Hold\'em presencial</string>
+
+    <!-- Estados do Servidor -->
+    <string name="status_stopped">Servidor parado</string>
+    <string name="status_starting">Iniciando servidor local…</string>
+    <string name="status_running">Mesa ativa na rede local</string>
+    <string name="status_stopping">Encerrando servidor…</string>
+    <string name="status_error">Falha na inicialização</string>
+
+    <string name="details_stopped">Toque em \"Criar mesa\" para iniciar a partida como anfitrião.</string>
+    <string name="details_starting">Carregando o motor de poker e preparando a rede local…</string>
+    <string name="details_running">Disponível em %1$s\nConvidados podem entrar pelo QR Code ou endereço acima.</string>
+    <string name="details_stopping">Finalizando o servidor e preservando os dados…</string>
+    <string name="details_error">Não foi possível iniciar o servidor. Verifique os logs ou tente novamente.</string>
+
+    <!-- Botões de Ação -->
+    <string name="btn_create_table">Criar mesa (Anfitrião)</string>
+    <string name="btn_return_to_table">Retornar à mesa</string>
+    <string name="btn_starting">Iniciando mesa…</string>
+    <string name="btn_stopping">Encerrando mesa…</string>
+    <string name="btn_stop_server">Encerrar mesa</string>
+    <string name="btn_join_table">Entrar em mesa (Convidado)</string>
+    <string name="btn_connect_host">Conectar à mesa</string>
+    <string name="btn_refresh_network">Atualizar redes</string>
+    <string name="btn_web_back">Painel</string>
+    <string name="btn_web_reload">Recarregar</string>
+
+    <!-- Rede -->
+    <string name="lbl_network_title">Rede para convites (QR Code):</string>
+    <string name="lbl_network_auto">Automático (recomendado)</string>
+    <string name="lbl_network_custom">Outro / Inserir IP manualmente</string>
+    <string name="hint_custom_ip">Ex: 10.107.248.23</string>
+    <string name="hint_host_address">http://10.107.248.23:3000</string>
+    <string name="lbl_host_address">Endereço da mesa do anfitrião:</string>
+
+    <!-- Diálogo de Encerramento -->
+    <string name="dialog_stop_title">Encerrar mesa local?</string>
+    <string name="dialog_stop_message">A partida e as fichas atuais estão salvas com segurança no banco SQLite, mas os outros jogadores serão desconectados da rede local.</string>
+    <string name="dialog_stop_confirm">Encerrar Mesa</string>
+    <string name="dialog_cancel">Cancelar</string>
+
+    <!-- Notificações em Primeiro Plano -->
+    <string name="notification_channel_name">Servidor Poker Table</string>
+    <string name="notification_channel_desc">Notificação persistente enquanto a mesa estiver hospedada</string>
+    <string name="notification_title">Poker Table — Mesa Ativa</string>
+    <string name="notification_text_starting">Iniciando servidor local…</string>
+    <string name="notification_text_running">Mesa ativa em %1$s</string>
+    <string name="notification_action_open">Abrir Mesa</string>
+    <string name="notification_action_stop">Encerrar</string>
+</resources>
