@@ -16,10 +16,11 @@ Os jogadores utilizam cartas reais na mesa e seus próprios celulares — conect
 >
 > A versão **v0.2.0** traz um aplicativo Android independente com servidor Node.js e banco SQLite embutidos, sem depender de computador ou Termux.
 >
-> - **Download do APK**: [app-release.apk (70 MB)](https://github.com/TheoEnderson/poker-table/releases/download/v0.2.0/app-release.apk)
+> - **Download do APK**: [PokerTable-v0.2.0-android-arm64.apk (70 MB)](https://github.com/TheoEnderson/poker-table/releases/download/v0.2.0/PokerTable-v0.2.0-android-arm64.apk)
 > - **Notas da Release**: [GitHub Release v0.2.0](https://github.com/TheoEnderson/poker-table/releases/tag/v0.2.0)
 > - **Arquitetura**: ARM de 64 bits (`arm64-v8a`) — compatível com a imensa maioria dos smartphones modernos
 > - **Requisito Mínimo**: Android 8.0 ou superior (API 26+)
+> - **Homologação em Dispositivo Real**: Validado fisicamente no Xiaomi Redmi Note 11 (Android 13)
 > - **Checksum SHA-256**: `7d26548b9662774c7a2d341f2bb52558918b74d64d8cbf22d1e4dae16b154b2d`
 
 ---
@@ -39,7 +40,7 @@ O **Poker Table** resolve esse problema mantendo a essência do jogo presencial:
 
 ## Funcionalidades
 
-- **Mesa Presencial com Suporte a 2–10 Jogadores**: Escolha dinâmica de assentos numerados na mesa com visualização em tempo real das posições.
+- **Mesa Presencial com Suporte a 2–10 Jogadores**: Capacidade configurável entre 2 e 10 participantes na criação da sala (padrão de 6 assentos no feltro virtual), com visualização em tempo real das posições.
 - **Controle Automático de Blinds e Dealer**: Rotação correta do botão de Dealer, Small Blind e Big Blind a cada nova mão, com dedução imediata das apostas obrigatórias.
 - **Ações Completas de Aposta**: Controles autoritativos para *Fold*, *Check*, *Call*, *Raise* (com seletor numérico ou atalhos táticos de 2.5x, 3x e Pote) e *All-in* com confirmação de segurança.
 - **Avanço de Streets pelo Anfitrião**: O anfitrião comanda o avanço das fases (**Pré-flop → Flop → Turn → River → Showdown**) após abrir as cartas físicas comunitárias na mesa.
@@ -82,7 +83,7 @@ O anfitrião executa o servidor local no computador conectado ao Wi-Fi:
 3. **Toque em "Criar mesa (Anfitrião)"**:
    - O servidor interno será iniciado e a interface da mesa abrirá na tela do celular.
 4. **Configure a Sala**:
-   - Defina o cacife inicial (stack de fichas) e os valores de Small Blind e Big Blind.
+   - Defina o nome da mesa, número de participantes (2 a 10 pessoas, com padrão inicial de 6 assentos), cacife inicial (stack de fichas) e valores de Small Blind e Big Blind.
 5. **Convide os Jogadores**:
    - Toque em **"Convide a mesa"** para exibir o QR Code e o link da sala.
 
