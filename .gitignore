@@ -7,3 +7,28 @@ test-results/
 playwright-report/
 .env
 coverage/
+dist-android/
+*.tar.gz
+
+# Android build artifacts and native binaries
+apps/android/.gradle/
+apps/android/build/
+apps/android/*/build/
+apps/android/app/.cxx/
+apps/android/.cxx/
+**/.cxx/
+apps/android/app/src/main/assets/nodejs-project/
+apps/android/app/src/main/jniLibs/
+apps/android/app/src/main/cpp/include/node/
+apps/android/local.properties
+*.apk
+*.so
+
+# Android signing keys and credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+signing.properties
+apps/android/keystore.properties
