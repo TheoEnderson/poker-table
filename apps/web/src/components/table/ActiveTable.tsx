@@ -68,7 +68,7 @@ export function ActiveTable({
       {error && <ErrorNotice message={error} />}
 
       {/* 2. Resumo da Mesa (Pote Total e Blinds) */}
-      <PotSummary game={game} players={room.players} />
+      <PotSummary game={game} room={room} selfId={selfId} />
 
       {/* 3. Fita Horizontal de Jogadores */}
       <SeatStrip game={game} room={room} selfId={selfId} />

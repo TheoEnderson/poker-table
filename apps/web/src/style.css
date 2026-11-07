@@ -266,12 +266,157 @@
     overflow-wrap: anywhere;
     text-align: center;
   }
+  .turn-banner-self {
+    background: #27200d;
+    border-color: var(--gold);
+    color: #fde68a;
+    box-shadow: 0 0 16px #e2bc7366;
+  }
+  .turn-banner-offline {
+    background: #2b1111;
+    border-color: #ef4444;
+    color: #fecaca;
+    box-shadow: 0 0 12px #ef444433;
+  }
+  .text-offline {
+    color: #fca5a5;
+    font-weight: 600;
+  }
   .turn-pulse {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--emerald);
     box-shadow: 0 0 6px var(--emerald);
+    flex-shrink: 0;
+  }
+  .turn-pulse.pulse-self {
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+  }
+  .turn-pulse.pulse-offline {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+  }
+
+  /* Last Action Bar */
+  .last-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #141f1a;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: #f4eee1;
+    margin: 4px auto 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+  }
+  .last-action-badge {
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: #2a3d31;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .last-action-text {
+    color: #e5e7eb;
+    font-weight: 500;
+  }
+
+  /* Hand History Disclosure */
+  .hand-history-details {
+    width: 100%;
+    margin-top: 6px;
+    background: #0f1814;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+  .hand-history-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+  }
+  .hand-history-summary:hover {
+    color: #f4eee1;
+    background: #15221c;
+  }
+  .history-toggle-arrow {
+    font-size: 0.65rem;
+    transition: transform 0.2s ease;
+  }
+  .hand-history-details[open] .history-toggle-arrow {
+    transform: rotate(180deg);
+  }
+  .hand-history-content {
+    padding: 6px 10px 10px;
+    border-top: 1px solid var(--line);
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    text-align: left;
+  }
+  .history-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .history-group-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    border-bottom: 1px dashed #2d4236;
+    padding-bottom: 2px;
+  }
+  .history-action-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .history-action-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: #d1d5db;
+    line-height: 1.3;
+  }
+  .history-seat {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: #1a2921;
+    padding: 0 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .history-desc {
+    flex: 1;
+    word-break: break-word;
   }
 
   /* Street Indicator */
@@ -416,7 +561,17 @@
   .tag-fold { background: #262c28; color: #9ca3af; border: 1px solid #374151; }
   .tag-allin { background: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
   .tag-turn { background: #064e3b; color: #6ee7b7; border: 1px solid var(--emerald); animation: pulse-turn 2s infinite; }
+  .tag-turn-self { background: #3b2a0c; color: #fde68a; border: 1px solid var(--gold); animation: pulse-turn-self 1.8s infinite; }
+  .tag-turn-offline { background: #3b1111; color: #fca5a5; border: 1px dashed #ef4444; }
   .tag-bet { background: #193828; color: var(--gold); border: 1px solid #3f664e; }
+  .tag-check { background: #153229; color: #a7f3d0; border: 1px solid #2d6a52; }
+  .tag-call { background: #133a28; color: #86efac; border: 1px solid #22c55e; }
+  .tag-raise { background: #38240f; color: #fed7aa; border: 1px solid #ea580c; }
+  .tag-blind { background: #1c2b23; color: #d1fae5; border: 1px solid #334d3f; }
+  .tag-active { background: #17241e; color: #9ca3af; border: 1px solid #283d32; }
+  .tag-offline { background: #2b1111; color: #fca5a5; border: 1px dashed #ef4444; }
+  .tag-eliminated { background: #1f2937; color: #9ca3af; border: 1px dashed #4b5563; }
+  .tag-sub { font-size: 0.85em; opacity: 0.9; margin-left: 2px; }
 
   .card-self {
     border-color: #63532c;
@@ -426,6 +581,10 @@
   .card-turn {
     border-color: var(--emerald);
     box-shadow: 0 0 10px var(--emerald-glow);
+  }
+  .card-turn-self {
+    border-color: var(--gold);
+    box-shadow: 0 0 14px #e2bc7355;
   }
   .card-folded {
     opacity: 0.45;
@@ -440,6 +599,10 @@
   @keyframes pulse-turn {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
+  }
+  @keyframes pulse-turn-self {
+    0%, 100% { box-shadow: 0 0 8px #e2bc7333; }
+    50% { box-shadow: 0 0 16px #e2bc7377; }
   }
 
   /* My Status Panel */
@@ -499,6 +662,21 @@
     font-size: 0.72rem;
     color: var(--muted);
   }
+  .my-bet-info-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .my-call-needed-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fde68a;
+    background: #2b220c;
+    border: 1px solid #786431;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
   .my-state-message {
     margin-left: auto;
   }
@@ -511,6 +689,7 @@
     letter-spacing: 0.02em;
   }
   .state-turn { background: var(--emerald); color: #042617; font-weight: 700; box-shadow: 0 0 10px var(--emerald-glow); }
+  .state-turn-self { background: #3b2a0c; color: #fde68a; border: 1px solid var(--gold); font-weight: 700; animation: pulse-turn-self 1.8s infinite; }
   .state-waiting { background: #18261f; color: var(--muted); border: 1px solid var(--line); }
   .state-folded { background: #374151; color: #d1d5db; }
   .state-allin { background: #991b1b; color: #fee2e2; }

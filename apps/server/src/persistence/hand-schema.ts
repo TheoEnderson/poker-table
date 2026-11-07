@@ -21,6 +21,20 @@ const round = z.strictObject({
   pot: chips, ...actor, playersToAct: ids, status: z.enum(['active', 'completed', 'hand_ended_by_fold']),
   ...blinds, ...positions, handState: initial,
 });
+
+export const handActionPersistenceSchema = z.strictObject({
+  seq: z.number().int().positive(),
+  playerId: z.uuid(),
+  seat,
+  street: z.enum(['preflop', 'flop', 'turn', 'river']),
+  type: z.enum(['small_blind', 'big_blind', 'fold', 'check', 'call', 'bet', 'raise']),
+  amount: chips,
+  roundCommitted: chips,
+  currentBet: chips,
+  isAllIn: z.boolean(),
+  raiseTarget: chips.nullable().optional(),
+});
+
 // v1 stores only an initial hand. Future network actions require an explicit format evolution.
 export const persistedV1 = z.strictObject({
   version: z.literal(1), status: z.literal('hand-active'),
@@ -32,6 +46,7 @@ export const persistedV1 = z.strictObject({
     })).min(2).max(10),
     ...positions, ...blinds, pot: chips, status: z.enum(['in_progress', 'showdown']),
     handState: initial, ...actor, playersToAct: ids, survivorId: z.null(),
+    actions: z.array(handActionPersistenceSchema).optional(),
   }),
 });
 
@@ -45,6 +60,7 @@ export const persistedV2 = z.strictObject({
       folded: z.boolean(), baseCommitted: chips,
     })).min(2).max(10),
     survivorId: z.uuid().nullable(),
+    actions: z.array(handActionPersistenceSchema).optional(),
   }),
 });
 

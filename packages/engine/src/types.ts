@@ -120,6 +120,28 @@ export interface HandFlowPlayer {
   readonly name?: string;
 }
 
+export type HandActionType =
+  | 'small_blind'
+  | 'big_blind'
+  | 'fold'
+  | 'check'
+  | 'call'
+  | 'bet'
+  | 'raise';
+
+export interface HandAction {
+  readonly seq: number;
+  readonly playerId: string;
+  readonly seat: number;
+  readonly street: Street;
+  readonly type: HandActionType;
+  readonly amount: number;
+  readonly roundCommitted: number;
+  readonly currentBet: number;
+  readonly isAllIn: boolean;
+  readonly raiseTarget?: number | null;
+}
+
 export interface HandFlowState {
   readonly street: Street;
   readonly currentRound: RoundState;
@@ -135,6 +157,7 @@ export interface HandFlowState {
   readonly currentActorId: string | null;
   readonly playersToAct: readonly string[];
   readonly survivorId?: string | null;
+  readonly actions?: readonly HandAction[];
 }
 
 export interface AllowedActionsInfo {

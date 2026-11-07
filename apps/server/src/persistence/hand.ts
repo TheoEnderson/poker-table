@@ -82,7 +82,10 @@ function verify(hand: HandFlowState, config: RoomConfig, participants: readonly 
     },
   });
 
-  if (!isDeepStrictEqual(hand, expected)) fail();
+  const { actions: handActions, ...handWithoutActions } = hand;
+  const { actions: expectedActions, ...expectedWithoutActions } = expected;
+  if (!isDeepStrictEqual(handWithoutActions, expectedWithoutActions)) fail();
+  if (handActions && !isDeepStrictEqual(handActions, expectedActions)) fail();
 }
 
 export function encodeGame(game: StoredGame, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): string {

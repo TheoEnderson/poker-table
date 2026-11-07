@@ -1,5 +1,6 @@
 import type { GameState, RoomState } from '@poker-table/protocol';
 import { ChipAmount } from '../common/ChipAmount';
+import { formatActionTag, getPlayerLastActionInStreet } from '../../utils/actions';
 
 export function PlayerCard({
   player,
@@ -31,16 +32,69 @@ export function PlayerCard({
   const isConnected = roomPlayer?.connected ?? true;
   const playerName = roomPlayer?.name ?? `Assento ${player.seat}`;
 
+  const playerLastAction = getPlayerLastActionInStreet(game.hand, player.id);
+
   const cardClasses = [
     'player-card',
     isSelf ? 'card-self' : '',
-    isActor ? 'card-turn' : '',
+    isActor ? (isSelf ? 'card-turn-self' : 'card-turn') : '',
     isFolded ? 'card-folded' : '',
     isAllIn ? 'card-allin' : '',
     !isConnected ? 'card-offline' : '',
   ]
     .filter(Boolean)
     .join(' ');
+
+  const renderStatusTag = () => {
+    if (isSettled && currentChips === 0) {
+      return <span className="action-tag tag-eliminated">ELIMINADO</span>;
+    }
+
+    if (isFolded) {
+      return (
+        <span className="action-tag tag-fold">
+          {isConnected ? 'FOLD' : 'FOLD · AUSENTE'}
+        </span>
+      );
+    }
+
+    if (isAllIn) {
+      return (
+        <span className="action-tag tag-allin">
+          {isConnected ? 'ALL-IN' : 'ALL-IN · AUSENTE'}
+        </span>
+      );
+    }
+
+    if (isActor) {
+      if (isSelf) {
+        return <span className="action-tag tag-turn tag-turn-self">SUA VEZ</span>;
+      }
+      if (!isConnected) {
+        return <span className="action-tag tag-turn tag-turn-offline">VEZ · AUSENTE</span>;
+      }
+      return <span className="action-tag tag-turn">AGINDO...</span>;
+    }
+
+    if (playerLastAction) {
+      const formatted = formatActionTag(playerLastAction);
+      return (
+        <span className={`action-tag ${formatted.className} tabular-nums`} title={formatted.sub}>
+          {formatted.label} {formatted.sub ? <small className="tag-sub">{formatted.sub}</small> : null}
+        </span>
+      );
+    }
+
+    if (!isSettled && player.roundCommitted > 0) {
+      return <span className="action-tag tag-bet tabular-nums">+{player.roundCommitted}</span>;
+    }
+
+    if (!isConnected) {
+      return <span className="action-tag tag-offline">AUSENTE</span>;
+    }
+
+    return <span className="action-tag tag-active">NA MÃO</span>;
+  };
 
   return (
     <article className={cardClasses} aria-label={`Jogador ${playerName}, assento ${player.seat}`}>
@@ -60,7 +114,7 @@ export function PlayerCard({
         <strong className="card-name" title={playerName}>
           {playerName}
         </strong>
-        {!isConnected && <span className="presence-tag offline">Ausente</span>}
+        {!isConnected && <span className="presence-tag offline">Desconectado</span>}
       </div>
 
       <div className="card-stack">
@@ -69,17 +123,7 @@ export function PlayerCard({
 
       {/* Indicadores de Ação */}
       <div className="card-status-bar">
-        {isSettled && currentChips === 0 ? (
-          <span className="action-tag tag-eliminated">ELIMINADO</span>
-        ) : isFolded ? (
-          <span className="action-tag tag-fold">FOLD</span>
-        ) : isAllIn ? (
-          <span className="action-tag tag-allin">ALL-IN</span>
-        ) : isActor ? (
-          <span className="action-tag tag-turn">SUA VEZ</span>
-        ) : !isSettled && player.roundCommitted > 0 ? (
-          <span className="action-tag tag-bet tabular-nums">+{player.roundCommitted}</span>
-        ) : null}
+        {renderStatusTag()}
       </div>
     </article>
   );

@@ -9,11 +9,15 @@ export {
   potAwardSnapshotSchema,
   playerPotAwardSnapshotSchema,
   settledPlayerSnapshotSchema,
+  handActionSchema,
+  handActionTypeSchema,
   type GameState,
   type HandSnapshot,
   type AllowedActions,
   type SettlementSnapshot,
   type PotSnapshot,
+  type HandAction,
+  type HandActionType,
 } from './game.js';
 
 export const PROTOCOL_VERSION = 1 as const;

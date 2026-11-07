@@ -4,6 +4,8 @@ import { buildPots } from './pot.js';
 import { applyAction, createPreFlopRound } from './round.js';
 import { getClockwiseOrderFromDealer } from './settlement.js';
 import type {
+  HandAction,
+  HandActionType,
   HandFlowPlayer,
   HandFlowState,
   HandFlowStatus,
@@ -125,6 +127,38 @@ export function startHandFlow(input: InitHandParams | HandState): HandFlowState 
     status = 'showdown';
   }
 
+  const initialActions: HandAction[] = [];
+  const sbPlayer = players.find(p => p.seat === handState.smallBlindSeat);
+  if (sbPlayer && sbPlayer.roundCommitted > 0) {
+    initialActions.push(Object.freeze({
+      seq: 1,
+      playerId: sbPlayer.id,
+      seat: sbPlayer.seat,
+      street: 'preflop',
+      type: 'small_blind',
+      amount: sbPlayer.roundCommitted,
+      roundCommitted: sbPlayer.roundCommitted,
+      currentBet: sbPlayer.roundCommitted,
+      isAllIn: sbPlayer.isAllIn,
+      raiseTarget: null,
+    }));
+  }
+  const bbPlayer = players.find(p => p.seat === handState.bigBlindSeat);
+  if (bbPlayer && bbPlayer.roundCommitted > 0) {
+    initialActions.push(Object.freeze({
+      seq: initialActions.length + 1,
+      playerId: bbPlayer.id,
+      seat: bbPlayer.seat,
+      street: 'preflop',
+      type: 'big_blind',
+      amount: bbPlayer.roundCommitted,
+      roundCommitted: bbPlayer.roundCommitted,
+      currentBet: Math.max(sbPlayer?.roundCommitted ?? 0, bbPlayer.roundCommitted),
+      isAllIn: bbPlayer.isAllIn,
+      raiseTarget: null,
+    }));
+  }
+
   return Object.freeze({
     street: 'preflop',
     currentRound,
@@ -140,6 +174,7 @@ export function startHandFlow(input: InitHandParams | HandState): HandFlowState 
     currentActorId: status === 'in_progress' ? currentRound.currentActorId : null,
     playersToAct: status === 'in_progress' ? currentRound.playersToAct : Object.freeze([]),
     survivorId,
+    actions: Object.freeze(initialActions),
   });
 }
 
@@ -175,6 +210,9 @@ export function applyHandAction(
       `A rodada de apostas de ${state.street} não está ativa.`,
     );
   }
+
+  const actorBefore = state.players.find(p => p.id === action.playerId);
+  const currentBetBefore = state.currentRound.currentBet;
 
   const normalizedAction: PlayerAction =
     (action.type as string) === 'bet'
@@ -217,6 +255,53 @@ export function applyHandAction(
     nextStatus = 'showdown';
   }
 
+  const roundActor = nextRound.players.find(rp => rp.id === action.playerId);
+  const previousActions = state.actions ?? [];
+  let nextActions = previousActions;
+
+  if (actorBefore && roundActor) {
+    const addedAmount = Math.max(0, roundActor.committed - actorBefore.roundCommitted);
+    let type: HandActionType = 'fold';
+    let raiseTarget: number | null = null;
+
+    if (action.type === 'fold') {
+      type = 'fold';
+    } else if (action.type === 'check') {
+      type = 'check';
+    } else if (action.type === 'call') {
+      type = 'call';
+    } else if (action.type === 'raise') {
+      if (currentBetBefore === 0) {
+        type = 'bet';
+      } else {
+        type = 'raise';
+      }
+      raiseTarget = roundActor.committed;
+    } else if (action.type === 'all-in' || (action.type as string) === 'allIn') {
+      if (roundActor.committed > currentBetBefore) {
+        type = currentBetBefore === 0 ? 'bet' : 'raise';
+        raiseTarget = roundActor.committed;
+      } else {
+        type = 'call';
+      }
+    }
+
+    const recordedAction: HandAction = Object.freeze({
+      seq: previousActions.length + 1,
+      playerId: actorBefore.id,
+      seat: actorBefore.seat,
+      street: state.street,
+      type,
+      amount: addedAmount,
+      roundCommitted: roundActor.committed,
+      currentBet: nextRound.currentBet,
+      isAllIn: roundActor.isAllIn,
+      raiseTarget,
+    });
+
+    nextActions = Object.freeze([...previousActions, recordedAction]);
+  }
+
   return Object.freeze({
     street: state.street,
     currentRound: nextRound,
@@ -232,6 +317,7 @@ export function applyHandAction(
     currentActorId: nextStatus === 'in_progress' ? nextRound.currentActorId : null,
     playersToAct: nextStatus === 'in_progress' ? nextRound.playersToAct : Object.freeze([]),
     survivorId,
+    actions: nextActions,
   });
 }
 
@@ -343,6 +429,7 @@ export function advanceStreet(state: HandFlowState): HandFlowState {
     currentActorId: nextStatus === 'in_progress' ? nextRound.currentActorId : null,
     playersToAct: nextStatus === 'in_progress' ? nextRound.playersToAct : Object.freeze([]),
     survivorId: state.survivorId ?? null,
+    actions: state.actions,
   });
 }
 
