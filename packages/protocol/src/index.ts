@@ -73,6 +73,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('advance-street') }),
   settleHandCommandSchema,
   nextHandCommandSchema,
+  z.strictObject({ ...commandBase, type: z.literal('reset-game') }),
 ]);
 
 export const participantSchema = z.strictObject({ id: z.uuid(), name: displayName, seat: z.number().int().nullable(), connected: z.boolean(), isHost: z.boolean() });
