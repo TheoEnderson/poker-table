@@ -8,7 +8,7 @@ import { attachRealtime } from '../realtime/socket.js';
 import { failure, RoomError } from '../errors.js';
 import { isLoopbackAddress, networkInfo, sameOrigin, setDynamicTarget } from './network.js';
 
-export interface AppOptions { databasePath: string; webDirectory?: string }
+export interface AppOptions { databasePath: string; webDirectory?: string; rateLimitMax?: number }
 export function createApplication(options: AppOptions) {
   const store = new Store(options.databasePath), rooms = new RoomService(store);
   const app = express(), http = createServer(app);
@@ -31,7 +31,8 @@ export function createApplication(options: AppOptions) {
     for (const [id, bucket] of requests) if (now - bucket.start > 60000) requests.delete(id);
     const bucket = requests.get(key) ?? { count: 0, start: now };
     bucket.count++; requests.set(key, bucket);
-    if (bucket.count > 100) return next(new RoomError('RATE_LIMITED', 'Muitas solicitações. Aguarde um minuto.'));
+    const maxRequests = options.rateLimitMax ?? 100;
+    if (bucket.count > maxRequests) return next(new RoomError('RATE_LIMITED', 'Muitas solicitações. Aguarde um minuto.'));
     if (!req.is('application/json')) return next(new RoomError('INVALID_INPUT', 'Envie dados JSON.'));
     next();
   });

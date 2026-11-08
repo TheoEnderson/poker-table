@@ -48,6 +48,7 @@ export function publicHand(hand: HandFlowState) {
       eligiblePlayers: [...pot.eligiblePlayers],
     })),
     survivorId,
+    actions: hand.actions ? [...hand.actions] : [],
   });
 }
 

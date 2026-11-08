@@ -1,5 +1,6 @@
 import type { GameState, RoomState } from '@poker-table/protocol';
 import { ChipAmount } from '../common/ChipAmount';
+import { getCurrentStreetBet } from '../../utils/actions';
 
 export function MyStatusPanel({
   game,
@@ -26,6 +27,16 @@ export function MyStatusPanel({
   const isFolded = settledPlayer ? settledPlayer.folded : (meInHand?.folded ?? false);
   const isAllIn = settledPlayer ? settledPlayer.isAllIn : (meInHand?.isAllIn ?? false);
 
+  const currentStreetBet = getCurrentStreetBet(game.hand);
+  const myRoundCommitted = meInHand?.roundCommitted ?? 0;
+  const callNeeded = !isFolded && !isAllIn && meInHand && game.hand.status === 'in_progress'
+    ? Math.max(0, currentStreetBet - myRoundCommitted)
+    : 0;
+
+  const currentActor = game.hand.currentActorId
+    ? room.players.find(p => p.id === game.hand.currentActorId)
+    : null;
+
   return (
     <section
       className={`my-status-panel ${isMyTurn ? 'panel-my-turn' : ''} ${isSpectator ? 'panel-spectator' : ''}`}
@@ -49,11 +60,18 @@ export function MyStatusPanel({
           ) : (
             <>
               <ChipAmount value={currentChips} size="lg" className="my-stack-amount" />
-              {meInHand && !isSettled && meInHand.roundCommitted > 0 && (
-                <span className="my-committed-tag tabular-nums">
-                  Aposta na street: {meInHand.roundCommitted}
-                </span>
-              )}
+              <div className="my-bet-info-row">
+                {meInHand && !isSettled && myRoundCommitted > 0 && (
+                  <span className="my-committed-tag tabular-nums">
+                    Sua aposta na street: {myRoundCommitted}
+                  </span>
+                )}
+                {callNeeded > 0 && (
+                  <span className="my-call-needed-tag tabular-nums">
+                    Para igualar: {callNeeded}
+                  </span>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -72,13 +90,15 @@ export function MyStatusPanel({
           ) : isAllIn ? (
             <span className="state-pill state-allin">Você está em All-in</span>
           ) : isMyTurn ? (
-            <span className="state-pill state-turn">Sua vez</span>
+            <span className="state-pill state-turn state-turn-self">Sua vez</span>
           ) : game.hand.status === 'showdown' ? (
             <span className="state-pill state-showdown">Showdown · Cartas na mesa</span>
           ) : game.hand.status === 'hand_ended_by_fold' ? (
             <span className="state-pill state-ended">Mão encerrada</span>
           ) : (
-            <span className="state-pill state-waiting">Aguardando sua vez</span>
+            <span className="state-pill state-waiting">
+              Aguardando {currentActor ? currentActor.name : 'jogada'}
+            </span>
           )}
         </div>
       </div>

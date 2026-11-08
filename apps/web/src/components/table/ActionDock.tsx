@@ -1,12 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CommandInput, GameState, RoomState } from '@poker-table/protocol';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RaiseControl } from './RaiseControl';
+import {
+  type PreActionType,
+  type PreActionState,
+  resolvePreAction,
+  shouldCancelPreActionOnBetChange,
+  getPreActionDescription,
+} from '../../utils/pre-actions';
+import { getCurrentStreetBet } from '../../utils/actions';
 
 export function ActionDock({
   game,
   room,
   selfId,
+  status,
   command,
   pending,
   disabled,
@@ -14,6 +23,7 @@ export function ActionDock({
   game: GameState;
   room: RoomState;
   selfId: string;
+  status?: 'connecting' | 'connected' | 'disconnected' | 'ended';
   command: (input: CommandInput) => Promise<boolean>;
   pending: boolean;
   disabled: boolean;
@@ -27,6 +37,10 @@ export function ActionDock({
     | { type: 'call' }
     | null
   >(null);
+
+  // Estado local das ações antecipadas (Pre-Actions)
+  const [preAction, setPreAction] = useState<PreActionState | null>(null);
+  const executedTurnKeyRef = useRef<string | null>(null);
 
   const meInRoom = room.players.find(p => p.id === selfId);
   const meInHand = game.hand.players.find(p => p.id === selfId);
@@ -66,6 +80,110 @@ export function ActionDock({
     room.revision,
     isMyTurn,
   ]);
+
+  // Execução de ação antecipada quando a vez do jogador chega
+  useEffect(() => {
+    if (!isMyTurn || !preAction) return;
+
+    const turnKey = `${game.hand.dealerSeat}:${game.hand.street}:${game.hand.actions?.length ?? 0}:${room.revision}`;
+    if (executedTurnKeyRef.current === turnKey) {
+      return;
+    }
+
+    const pendingPreAction = preAction;
+    // Consome imediatamente do estado para prevenir dupla submissão
+    setPreAction(null);
+    executedTurnKeyRef.current = turnKey;
+
+    const result = resolvePreAction({
+      preAction: pendingPreAction,
+      allowed: allowed ?? null,
+      currentStreet: game.hand.street,
+      currentDealerSeat: game.hand.dealerSeat,
+    });
+
+    if (result.actionToSend) {
+      void command({ type: 'game-action', action: result.actionToSend });
+    }
+  }, [
+    isMyTurn,
+    preAction,
+    allowed,
+    game.hand.street,
+    game.hand.dealerSeat,
+    game.hand.actions?.length,
+    room.revision,
+    command,
+  ]);
+
+  // Reseta a chave de execução quando não for a vez do jogador
+  useEffect(() => {
+    if (!isMyTurn) {
+      executedTurnKeyRef.current = null;
+    }
+  }, [isMyTurn]);
+
+  // Cancelamento automático da ação antecipada em caso de desconexão, avanço de street ou apostas concorrentes
+  useEffect(() => {
+    if (!preAction) return;
+
+    if (
+      status === 'disconnected' ||
+      status === 'ended' ||
+      disabled ||
+      isSpectator ||
+      isFolded ||
+      isAllIn ||
+      isEliminated ||
+      game.status !== 'hand-active' ||
+      game.hand.status !== 'in_progress' ||
+      game.hand.street !== preAction.street ||
+      game.hand.dealerSeat !== preAction.handDealerSeat
+    ) {
+      setPreAction(null);
+      return;
+    }
+
+    const currentStreetBet = getCurrentStreetBet(game.hand);
+    const playerRoundCommitted = meInHand?.roundCommitted ?? 0;
+    if (
+      shouldCancelPreActionOnBetChange({
+        preAction,
+        currentStreetBet,
+        playerRoundCommitted,
+      })
+    ) {
+      setPreAction(null);
+    }
+  }, [
+    preAction,
+    status,
+    disabled,
+    isSpectator,
+    isFolded,
+    isAllIn,
+    isEliminated,
+    game.status,
+    game.hand.status,
+    game.hand.street,
+    game.hand.dealerSeat,
+    game.hand.players,
+    meInHand?.roundCommitted,
+  ]);
+
+  const handleTogglePreAction = (type: PreActionType) => {
+    if (preAction?.type === type) {
+      setPreAction(null);
+    } else {
+      const currentStreetBet = getCurrentStreetBet(game.hand);
+      setPreAction({
+        type,
+        street: game.hand.street,
+        handDealerSeat: game.hand.dealerSeat,
+        createdCurrentBet: currentStreetBet,
+      });
+    }
+  };
 
   // Handlers
   const handleFold = async () => {
@@ -138,6 +256,122 @@ export function ActionDock({
       return null;
     }
 
+    const canSelectPreActions =
+      !isSpectator &&
+      !isFolded &&
+      !isAllIn &&
+      !isEliminated &&
+      game.status === 'hand-active' &&
+      game.hand.status === 'in_progress' &&
+      game.hand.currentActorId !== null;
+
+    if (canSelectPreActions) {
+      const actor = room.players.find(p => p.id === game.hand.currentActorId);
+      const actorName = actor?.name ?? 'outro jogador';
+      const currentStreetBet = getCurrentStreetBet(game.hand);
+      const playerRoundCommitted = meInHand?.roundCommitted ?? 0;
+      const isFacingBet = currentStreetBet > playerRoundCommitted;
+
+      return (
+        <footer
+          className="future-action-dock pre-actions-dock"
+          aria-label="Painel de ações antecipadas"
+          data-testid="pre-actions-dock"
+        >
+          <div className="pre-actions-header">
+            <div className="pre-actions-actor">
+              <span className="pre-actions-pulse" aria-hidden="true" />
+              <span className="pre-actions-waiting-text">
+                Aguardando <strong>{actorName}</strong> agir…
+              </span>
+            </div>
+            {preAction && (
+              <button
+                type="button"
+                className="pre-action-cancel-btn"
+                onClick={() => setPreAction(null)}
+                aria-label="Cancelar ação antecipada agendada"
+                data-testid="cancel-pre-action"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+
+          <div className="pre-actions-grid" role="group" aria-label="Ações antecipadas">
+            {/* 1. Check */}
+            <button
+              type="button"
+              className={`pre-action-btn pre-action-check ${preAction?.type === 'check' ? 'active' : ''}`}
+              disabled={isFacingBet || disabled || pending}
+              onClick={() => handleTogglePreAction('check')}
+              aria-pressed={preAction?.type === 'check'}
+              title={
+                isFacingBet
+                  ? 'Indisponível: há aposta a pagar'
+                  : 'Passar a vez quando chegar sua vez se ninguém apostar'
+              }
+              data-testid="pre-action-check"
+            >
+              <span className="pre-action-checkbox" aria-hidden="true">
+                {preAction?.type === 'check' ? '✓' : ''}
+              </span>
+              <span className="pre-action-label">Check</span>
+            </button>
+
+            {/* 2. Check / Fold */}
+            <button
+              type="button"
+              className={`pre-action-btn pre-action-checkfold ${preAction?.type === 'check-fold' ? 'active' : ''}`}
+              disabled={disabled || pending}
+              onClick={() => handleTogglePreAction('check-fold')}
+              aria-pressed={preAction?.type === 'check-fold'}
+              title="Passar se gratuito; desistir se houver aposta"
+              data-testid="pre-action-check-fold"
+            >
+              <span className="pre-action-checkbox" aria-hidden="true">
+                {preAction?.type === 'check-fold' ? '✓' : ''}
+              </span>
+              <span className="pre-action-label">Check / Fold</span>
+            </button>
+
+            {/* 3. Fold */}
+            <button
+              type="button"
+              className={`pre-action-btn pre-action-fold ${preAction?.type === 'fold' ? 'active' : ''}`}
+              disabled={disabled || pending}
+              onClick={() => handleTogglePreAction('fold')}
+              aria-pressed={preAction?.type === 'fold'}
+              title="Desistir quando chegar sua vez"
+              data-testid="pre-action-fold"
+            >
+              <span className="pre-action-checkbox" aria-hidden="true">
+                {preAction?.type === 'fold' ? '✓' : ''}
+              </span>
+              <span className="pre-action-label">Fold</span>
+            </button>
+          </div>
+
+          {preAction && (
+            <div className="pre-action-scheduled-banner" data-testid="pre-action-indicator">
+              <span className="banner-icon" aria-hidden="true">⏱</span>
+              <span>
+                {preAction.type === 'check-fold' ? (
+                  <>
+                    Agendado: <strong>Passar se possível; caso contrário, desistir.</strong>
+                  </>
+                ) : (
+                  <>
+                    Agendado: <strong>{getPreActionDescription(preAction.type)}</strong> na sua vez
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+        </footer>
+      );
+    }
+
     let message = 'Aguardando o andamento da mão…';
     let badgeType: 'info' | 'turn' | 'wait' | 'alert' = 'info';
     let icon = '⏳';
@@ -208,6 +442,23 @@ export function ActionDock({
   // É a vez do jogador: Console Funcional de Apostas
   const isBet = (allowed?.currentBet ?? 0) === 0;
 
+  // Se o jogador estiver enfrentando uma aposta e o valor necessário para pagar
+  // consumir todo o seu stack disponível (ou allInType for 'call'), o Call já é um All-in.
+  const isCallAllIn =
+    allowed?.canCall === true &&
+    (allowed.allInType === 'call' || currentChips <= allowed.callAmount);
+
+  // Distinção entre All-in total (que iguala o valor da aposta) e All-in parcial (insuficiente para igualar)
+  const isPartialCallAllIn =
+    isCallAllIn &&
+    (meInHand?.roundCommitted ?? 0) + currentChips < (allowed?.currentBet ?? 0);
+
+  // O botão dedicado "All-in" só deve ser exibido quando representar um Aumento (Raise)
+  // ou quando o jogador não estiver em uma situação onde o Call já seja o seu único All-in.
+  // Evita a redundância de exibir "Pagar X (All-in)" e "All-in (X)" lado a lado.
+  const showDedicatedAllInButton =
+    allowed?.canAllIn === true && !isCallAllIn;
+
   return (
     <footer className="action-dock action-dock-active" aria-label="Painel de ações de aposta">
       {showRaise && allowed?.canRaise && allowed.minRaiseAmount !== null && allowed.maxRaiseAmount !== null ? (
@@ -217,6 +468,8 @@ export function ActionDock({
           minRaiseIncrement={allowed.minRaiseIncrement ?? game.hand.bigBlind}
           playerRoundCommitted={meInHand?.roundCommitted ?? 0}
           playerChips={currentChips}
+          pot={game.hand.pot}
+          currentBet={allowed.currentBet ?? 0}
           isBet={isBet}
           disabled={isActionDisabled}
           onConfirm={amount => void handleRaiseSubmit(amount)}
@@ -259,17 +512,23 @@ export function ActionDock({
                 className="action-btn action-btn-call"
                 disabled={isActionDisabled}
                 onClick={() => {
-                  if (allowed.callAmount >= currentChips) {
+                  if (isCallAllIn) {
                     setAllInIntent({ type: 'call' });
                     setConfirmAllIn(true);
                   } else {
                     void handleCall();
                   }
                 }}
-                aria-label={`Pagar ${allowed.callAmount} fichas`}
+                aria-label={
+                  isPartialCallAllIn
+                    ? `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas (All-in parcial)`
+                    : isCallAllIn
+                      ? `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas (All-in)`
+                      : `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas`
+                }
               >
                 Pagar {allowed.callAmount.toLocaleString('pt-BR')}
-                {allowed.callAmount >= currentChips ? ' (All-in)' : ''}
+                {isCallAllIn ? ' (All-in)' : ''}
               </button>
             ) : null}
 
@@ -286,8 +545,8 @@ export function ActionDock({
               </button>
             )}
 
-            {/* 4. All-in */}
-            {allowed?.canAllIn && (
+            {/* 4. All-in (apenas quando for ação distinta do call) */}
+            {showDedicatedAllInButton && (
               <button
                 type="button"
                 className="action-btn action-btn-allin"
@@ -324,7 +583,9 @@ export function ActionDock({
           allInIntent?.type === 'raise'
             ? `Você apostará todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (aumento total de ${allInIntent.amount.toLocaleString('pt-BR')} fichas na rodada).`
             : allInIntent?.type === 'call'
-              ? `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in).`
+              ? isPartialCallAllIn
+                ? `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in parcial insuficiente para cobrir o total da aposta).`
+                : `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in).`
               : `Você apostará todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa.`
         }
         confirmLabel="Confirmar All-in"

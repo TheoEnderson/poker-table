@@ -1,7 +1,6 @@
 import type { CommandInput, RoomState } from '@poker-table/protocol';
 import { ErrorNotice } from '../Layout';
-import { PotSummary } from './PotSummary';
-import { SeatStrip } from './SeatStrip';
+import { VirtualTable } from './VirtualTable';
 import { MyStatusPanel } from './MyStatusPanel';
 import { ActionDock } from './ActionDock';
 import { SettlementBanner } from './SettlementBanner';
@@ -67,11 +66,8 @@ export function ActiveTable({
       {/* Notificação de Erro na Área Principal */}
       {error && <ErrorNotice message={error} />}
 
-      {/* 2. Resumo da Mesa (Pote Total e Blinds) */}
-      <PotSummary game={game} players={room.players} />
-
-      {/* 3. Fita Horizontal de Jogadores */}
-      <SeatStrip game={game} room={room} selfId={selfId} />
+      {/* 2. Mesa Virtual de Poker (Feltro, Pote Central, Cartas Comunitárias e Assentos) */}
+      <VirtualTable game={game} room={room} selfId={selfId} />
 
       {/* 4. Resumo de Premiações (se a mão foi liquidada ou partida encerrada) */}
       <SettlementBanner game={game} room={room} />
@@ -104,6 +100,7 @@ export function ActiveTable({
         game={game}
         room={room}
         selfId={selfId}
+        status={status}
         command={command}
         pending={pending}
         disabled={disabled}
