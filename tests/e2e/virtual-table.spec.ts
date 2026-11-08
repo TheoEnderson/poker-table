@@ -328,6 +328,7 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
 
       // 2. In 320px viewport:
       await page.setViewportSize({ width: 320, height: 640 });
+      await page.waitForTimeout(300);
       const dockBox320 = await actionDockActive.boundingBox();
       expect(dockBox320).not.toBeNull();
       expect(dockBox320!.y + dockBox320!.height).toBeLessThanOrEqual(640);

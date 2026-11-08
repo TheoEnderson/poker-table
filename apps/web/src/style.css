@@ -2357,6 +2357,11 @@
     border-color: rgba(168, 85, 247, 0.4);
     color: #d8b4fe;
   }
+  .settlement-status-badge.complete-badge {
+    background: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #fde047;
+  }
   .next-hand-hint, .showdown-instruction {
     margin: 0;
     font-size: 0.82rem;
@@ -2414,6 +2419,49 @@
   .settle-showdown-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  .host-settlement-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .reset-game-btn {
+    min-height: 44px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(20, 32, 26, 0.9);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    transition: transform 0.1s ease, background 0.15s ease, filter 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .reset-game-btn:hover:not(:disabled) {
+    background: rgba(30, 48, 38, 0.95);
+    filter: brightness(1.1);
+  }
+  .reset-game-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .reset-game-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .host-game-complete-panel .reset-game-btn {
+    min-height: 48px;
+    background: linear-gradient(135deg, var(--gold), #c99a42);
+    color: #1a271e;
+    border: none;
+    box-shadow: 0 2px 12px rgba(226, 188, 115, 0.35);
+  }
+  .host-game-complete-panel .reset-game-btn:hover:not(:disabled) {
+    filter: brightness(1.1);
   }
   .fold-winner-info {
     display: flex;

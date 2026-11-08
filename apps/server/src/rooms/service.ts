@@ -234,6 +234,17 @@ export class RoomService {
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextActiveGame, config, players), c.roomId);
           break;
         }
+        case 'reset-game': {
+          this.admin(c, row);
+          if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
+          const config = this.config(row), players = this.players(c.roomId);
+          const stored = decodeGame(row.game, config, players);
+          if (stored.status === 'hand-active') {
+            throw new RoomError('GAME_IN_PROGRESS', 'Não é possível reiniciar a partida durante uma mão em andamento. Conclua ou liquide a mão antes de reiniciar.');
+          }
+          this.store.db.prepare('UPDATE rooms SET game=NULL WHERE id=?').run(c.roomId);
+          break;
+        }
 
       }
       this.store.db.prepare('INSERT INTO commands(room_id,player_id,command_id,fingerprint) VALUES(?,?,?,?)').run(c.roomId, c.playerId, commandId, fingerprint);

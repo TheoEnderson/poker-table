@@ -19,6 +19,7 @@ export function HostSettlementControls({
   disabled: boolean;
 }) {
   const [confirmSettle, setConfirmSettle] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [selectedWinners, setSelectedWinners] = useState<Record<string, string[]>>({});
   const [tieMode, setTieMode] = useState<Record<string, boolean>>({});
 
@@ -26,6 +27,7 @@ export function HostSettlementControls({
   const isHost = me?.isHost ?? false;
   const isHandActive = game.status === 'hand-active';
   const isHandSettled = game.status === 'hand-settled';
+  const isGameComplete = game.status === 'game-complete';
   const isShowdown = isHandActive && game.hand.status === 'showdown';
   const isFoldEnded = isHandActive && game.hand.status === 'hand_ended_by_fold';
 
@@ -34,6 +36,7 @@ export function HostSettlementControls({
   // Reset / sync selected winners when revision or hand changes
   useEffect(() => {
     setConfirmSettle(false);
+    setConfirmReset(false);
     if (isShowdown && pots.length > 0) {
       setSelectedWinners(prev => {
         const next: Record<string, string[]> = { ...prev };
@@ -56,6 +59,11 @@ export function HostSettlementControls({
 
   if (!isHost) return null;
 
+  const handleConfirmResetGame = async () => {
+    const ok = await command({ type: 'reset-game' });
+    if (ok) setConfirmReset(false);
+  };
+
   // 1. Next hand state: hand is settled and game is not complete
   if (isHandSettled) {
     return (
@@ -66,15 +74,35 @@ export function HostSettlementControls({
             <span>Mão liquidada</span>
           </div>
           <p className="next-hand-hint">Fichas distribuídas e stacks atualizados. Pronto para iniciar a próxima rodada.</p>
-          <button
-            type="button"
-            className="action-btn-primary next-hand-btn"
-            disabled={pending || disabled}
-            onClick={() => command({ type: 'next-hand' })}
-          >
-            {pending ? 'Iniciando…' : 'Iniciar Próxima Mão ♠'}
-          </button>
+          <div className="host-settlement-actions-row">
+            <button
+              type="button"
+              className="action-btn-primary next-hand-btn"
+              disabled={pending || disabled}
+              onClick={() => command({ type: 'next-hand' })}
+            >
+              {pending ? 'Iniciando…' : 'Iniciar Próxima Mão ♠'}
+            </button>
+            <button
+              type="button"
+              className="action-btn-secondary reset-game-btn"
+              disabled={pending || disabled}
+              onClick={() => setConfirmReset(true)}
+            >
+              Nova Partida / Reiniciar Fichas 🔄
+            </button>
+          </div>
         </div>
+
+        <ConfirmDialog
+          open={confirmReset}
+          title="Iniciar Nova Partida e Reiniciar Fichas?"
+          description={`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Todos os participantes sentados receberão ${room.config.startingChips.toLocaleString('pt-BR')} fichas.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
+          confirmLabel="Reiniciar Fichas"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={handleConfirmResetGame}
+          pending={pending}
+        />
       </section>
     );
   }
@@ -298,6 +326,40 @@ export function HostSettlementControls({
           confirmLabel="Confirmar Liquidação"
           onCancel={() => setConfirmSettle(false)}
           onConfirm={handleConfirmShowdownSettle}
+          pending={pending}
+        />
+      </section>
+    );
+  }
+
+  if (isGameComplete) {
+    return (
+      <section className="host-settlement-controls host-game-complete-panel" aria-label="Controle de fim de partida">
+        <div className="host-settlement-card">
+          <div className="settlement-status-badge complete-badge">
+            <span className="badge-icon" aria-hidden="true">🏆</span>
+            <span>Partida Concluída</span>
+          </div>
+          <p className="next-hand-hint">
+            Todas as fichas foram conquistadas. Você pode iniciar uma nova partida mantendo os mesmos participantes e assentos com as fichas iniciais restauradas.
+          </p>
+          <button
+            type="button"
+            className="action-btn-primary reset-game-btn"
+            disabled={pending || disabled}
+            onClick={() => setConfirmReset(true)}
+          >
+            {pending ? 'Reiniciando…' : 'Nova Partida / Reiniciar Fichas 🔄'}
+          </button>
+        </div>
+
+        <ConfirmDialog
+          open={confirmReset}
+          title="Iniciar Nova Partida e Reiniciar Fichas?"
+          description={`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Todos os participantes sentados receberão ${room.config.startingChips.toLocaleString('pt-BR')} fichas.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
+          confirmLabel="Reiniciar Fichas"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={handleConfirmResetGame}
           pending={pending}
         />
       </section>
