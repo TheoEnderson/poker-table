@@ -12,7 +12,7 @@ Os jogadores utilizam cartas reais na mesa e seus próprios celulares — conect
 
 ---
 
-> ### 📱 Download da Versão Oficial (Android)
+> ### Download da Versão Oficial (Android)
 >
 > A versão **v0.2.0** traz um aplicativo Android independente com servidor Node.js e banco SQLite embutidos, sem depender de computador ou Termux.
 >
