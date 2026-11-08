@@ -100,6 +100,7 @@ export function ActiveTable({
         game={game}
         room={room}
         selfId={selfId}
+        status={status}
         command={command}
         pending={pending}
         disabled={disabled}

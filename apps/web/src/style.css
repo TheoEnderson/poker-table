@@ -155,6 +155,12 @@
     padding-bottom: calc(160px + env(safe-area-inset-bottom, 16px));
     box-sizing: border-box;
   }
+  @media (max-width: 360px) {
+    .active-table {
+      gap: 5px;
+      padding-bottom: calc(140px + env(safe-area-inset-bottom, 14px));
+    }
+  }
   @media (min-width: 768px) {
     .active-table {
       max-width: 760px;
@@ -260,6 +266,13 @@
     flex-direction: column;
     gap: 8px;
   }
+  @media (max-width: 360px) {
+    .pot-summary {
+      padding: 8px 10px;
+      border-radius: 12px;
+      gap: 5px;
+    }
+  }
   .pot-header {
     display: flex;
     justify-content: space-between;
@@ -310,6 +323,12 @@
     overflow-wrap: anywhere;
     text-align: center;
   }
+  @media (max-width: 360px) {
+    .turn-banner {
+      padding: 4px 8px;
+      font-size: 0.74rem;
+    }
+  }
   .turn-banner-self {
     background: #27200d;
     border-color: var(--gold);
@@ -359,6 +378,13 @@
     max-width: 100%;
     box-sizing: border-box;
     overflow-wrap: anywhere;
+  }
+  @media (max-width: 360px) {
+    .last-action-bar {
+      margin: 6px auto 0;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+    }
   }
   .last-action-badge {
     font-size: 0.58rem;
@@ -559,6 +585,21 @@
     min-height: 440px;
     max-height: 580px;
     margin: 20px auto 16px;
+  }
+  @media (max-width: 360px) {
+    .virtual-table-arena {
+      aspect-ratio: 1 / 0.88;
+      min-height: 245px;
+      max-height: 275px;
+      margin: 2px auto 2px;
+      border-radius: 20px;
+    }
+    .virtual-table-arena.seats-dense {
+      aspect-ratio: 1 / 1.05;
+      min-height: 310px;
+      max-height: 370px;
+      margin: 4px auto 2px;
+    }
   }
   @media (min-width: 768px) {
     .virtual-table-arena {
@@ -1566,6 +1607,216 @@
     line-height: 1.4;
   }
 
+  /* Pre-Actions Dock (Ações Antecipadas) */
+  .pre-actions-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    max-width: 620px;
+    width: 100%;
+    z-index: 50;
+    background: rgba(18, 30, 24, 0.96);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    padding: 8px 12px max(12px, env(safe-area-inset-bottom, 12px));
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  @media (min-width: 768px) {
+    .pre-actions-dock {
+      max-width: 760px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .pre-actions-dock {
+      max-width: 980px;
+    }
+  }
+
+  .pre-actions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px;
+  }
+  .pre-actions-actor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .pre-actions-waiting-text strong {
+    color: #f4eee1;
+  }
+  .pre-actions-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse-turn-self 1.8s infinite;
+    flex-shrink: 0;
+  }
+  .pre-action-cancel-btn {
+    background: transparent;
+    border: 1px solid #4a5568;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    min-height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .pre-action-cancel-btn:hover {
+    color: #cbd5e1;
+    border-color: #64748b;
+  }
+
+  .pre-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .pre-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 42px;
+    border-radius: 8px;
+    background: #141f1a;
+    border: 1px solid #293830;
+    color: #d1d5db;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 4px;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pre-action-btn:hover:not(:disabled) {
+    background: #1c2b24;
+    border-color: #3d5246;
+  }
+  .pre-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .pre-action-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid #4b5563;
+    background: #0f1713;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .pre-action-label {
+    white-space: nowrap;
+  }
+
+  /* Estados ativos dos botões de ação antecipada */
+  .pre-action-check.active {
+    background: #064e3b;
+    border-color: var(--emerald);
+    color: #ecfdf5;
+    box-shadow: 0 0 10px var(--emerald-glow);
+  }
+  .pre-action-check.active .pre-action-checkbox {
+    background: var(--emerald);
+    border-color: var(--emerald);
+    color: #042617;
+  }
+
+  .pre-action-checkfold.active {
+    background: #451a03;
+    border-color: #d97706;
+    color: #fef3c7;
+    box-shadow: 0 0 10px rgba(217, 119, 6, 0.3);
+  }
+  .pre-action-checkfold.active .pre-action-checkbox {
+    background: #d97706;
+    border-color: #d97706;
+    color: #fff;
+  }
+
+  .pre-action-fold.active {
+    background: #450a0a;
+    border-color: #dc2626;
+    color: #fee2e2;
+    box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
+  }
+  .pre-action-fold.active .pre-action-checkbox {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+  }
+
+  .pre-action-scheduled-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    color: var(--gold);
+    background: rgba(226, 188, 115, 0.08);
+    border: 1px solid rgba(226, 188, 115, 0.25);
+    border-radius: 6px;
+    padding: 4px 8px;
+    text-align: center;
+  }
+  .pre-action-scheduled-banner .banner-icon {
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 360px) {
+    .pre-actions-dock {
+      padding: 6px 8px max(8px, env(safe-area-inset-bottom, 8px));
+      gap: 4px;
+      border-radius: 14px 14px 0 0;
+    }
+    .pre-actions-header {
+      padding: 0 2px;
+    }
+    .pre-actions-actor {
+      font-size: 0.74rem;
+    }
+    .pre-actions-grid {
+      gap: 4px;
+    }
+    .pre-action-btn {
+      min-height: 36px;
+      font-size: 0.74rem;
+      padding: 3px 2px;
+      gap: 3px;
+    }
+    .pre-action-checkbox {
+      width: 14px;
+      height: 14px;
+      font-size: 0.65rem;
+    }
+    .pre-action-scheduled-banner {
+      padding: 3px 6px;
+      font-size: 0.72rem;
+      gap: 4px;
+    }
+  }
+
   /* Action Dock Funcional (Etapa 4B) */
   .action-dock {
     background: var(--bg-surface);
@@ -2548,6 +2799,27 @@
     }
   }
   @media (max-width: 360px) {
+    .header {
+      padding: 6px 10px;
+    }
+    .brand {
+      font-size: 1rem;
+      gap: 6px;
+    }
+    .brand-mark {
+      font-size: 1.4rem;
+    }
+    .table-page {
+      padding-top: 4px;
+    }
+    .active-header {
+      padding: 4px 8px;
+      gap: 2px;
+    }
+    .active-connection-row {
+      font-size: 0.65rem;
+      gap: 4px;
+    }
     .raise-presets {
       gap: 4px;
     }
