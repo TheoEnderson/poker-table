@@ -110,6 +110,24 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
         fullPage: false,
       });
 
+      // Verify 2-player table also in 320px viewport without collisions
+      await page.setViewportSize({ width: 320, height: 640 });
+      const topBarRect320 = await page.locator('.table-top-status-bar').boundingBox();
+      const northPodRect320 = await rafaelPodOnHelena.boundingBox();
+      expect(topBarRect320).not.toBeNull();
+      expect(northPodRect320).not.toBeNull();
+      expect(topBarRect320!.y + topBarRect320!.height).toBeLessThanOrEqual(northPodRect320!.y);
+
+      const scrollWidth320 = await page.evaluate(() => document.body.scrollWidth);
+      expect(scrollWidth320).toBeLessThanOrEqual(320);
+      await page.screenshot({
+        path: `${SCRATCH_DIR}/mesa-2p-320px.png`,
+        fullPage: false,
+      });
+
+      // Restore to 390px for street progression
+      await page.setViewportSize({ width: 390, height: 844 });
+
       // 5. Street progression: Preflop -> Flop
       await page.locator('.action-btn-call').click();
       await page2.locator('.action-btn-check').click();
@@ -516,6 +534,43 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
       // Capture screenshot mesa-10p-390px.png
       await page.screenshot({
         path: `${SCRATCH_DIR}/mesa-10p-390px.png`,
+        fullPage: false,
+      });
+
+      // Verify 10-player full ring table also in 320px viewport without collisions
+      await page.setViewportSize({ width: 320, height: 640 });
+      const boxes320 = [];
+      for (let i = 0; i < 10; i++) {
+        const box = await pods.nth(i).boundingBox();
+        expect(box).not.toBeNull();
+        boxes320.push(box!);
+      }
+      for (let i = 0; i < 10; i++) {
+        for (let j = i + 1; j < 10; j++) {
+          const b1 = boxes320[i];
+          const b2 = boxes320[j];
+          const intersects = !(
+            b1.x + b1.width <= b2.x ||
+            b2.x + b2.width <= b1.x ||
+            b1.y + b1.height <= b2.y ||
+            b2.y + b2.height <= b1.y
+          );
+          expect(intersects).toBe(false);
+        }
+      }
+
+      const topBarBox320 = await page.locator('.table-top-status-bar').boundingBox();
+      const northPod320 = page.locator('.seat-pod.zone-north');
+      const northPodBox320 = await northPod320.boundingBox();
+      if (topBarBox320 && northPodBox320) {
+        expect(topBarBox320.y + topBarBox320.height).toBeLessThanOrEqual(northPodBox320.y);
+      }
+
+      const scrollWidth320 = await page.evaluate(() => document.body.scrollWidth);
+      expect(scrollWidth320).toBeLessThanOrEqual(320);
+
+      await page.screenshot({
+        path: `${SCRATCH_DIR}/mesa-10p-320px.png`,
         fullPage: false,
       });
     } finally {

@@ -588,17 +588,17 @@
   }
   @media (max-width: 360px) {
     .virtual-table-arena {
-      aspect-ratio: 1 / 0.88;
-      min-height: 245px;
-      max-height: 275px;
-      margin: 2px auto 2px;
+      aspect-ratio: 1 / 0.82;
+      min-height: 235px;
+      max-height: 255px;
+      margin: 20px auto 4px;
       border-radius: 20px;
     }
     .virtual-table-arena.seats-dense {
-      aspect-ratio: 1 / 1.05;
-      min-height: 310px;
-      max-height: 370px;
-      margin: 4px auto 2px;
+      aspect-ratio: 1 / 1.18;
+      min-height: 340px;
+      max-height: 380px;
+      margin: 20px auto 4px;
     }
   }
   @media (min-width: 768px) {
@@ -1044,6 +1044,43 @@
   .seats-dense .pod-bet-badge {
     font-size: 0.55rem;
     padding: 1px 3px;
+  }
+  @media (max-width: 360px) {
+    .seats-dense .player-card.seat-pod,
+    .seats-dense .seat-pod {
+      width: 58px;
+      min-height: 40px;
+      padding: 1px 2px;
+    }
+    .seats-dense .player-card.pod-self,
+    .seats-dense .pod-self {
+      width: 66px;
+      min-height: 42px;
+    }
+    .seats-dense .card-name {
+      font-size: 0.54rem;
+    }
+    .seats-dense .card-seat {
+      font-size: 0.48rem;
+    }
+    .seats-dense .badge {
+      font-size: 0.38rem;
+      padding: 0 1px;
+    }
+    .seats-dense .card-stack .chip-amount {
+      font-size: 0.56rem;
+    }
+    .seats-dense .action-tag {
+      font-size: 0.44rem;
+      padding: 0 1px;
+    }
+    .seats-dense .symbolic-hole-card {
+      width: 9px;
+      height: 13px;
+    }
+    .seats-dense .pod-hole-cards {
+      top: -8px;
+    }
   }
 
   /* Cartas de mão simbólicas (Hole cards) */
