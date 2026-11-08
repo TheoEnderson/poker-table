@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { getBetPresets, type BetPreset } from '../../utils/betting';
 
 export function RaiseControl({
   minRaiseAmount,
@@ -6,6 +7,8 @@ export function RaiseControl({
   minRaiseIncrement,
   playerRoundCommitted,
   playerChips,
+  pot,
+  currentBet,
   isBet = false,
   disabled,
   onConfirm,
@@ -16,6 +19,8 @@ export function RaiseControl({
   minRaiseIncrement: number;
   playerRoundCommitted: number;
   playerChips: number;
+  pot: number;
+  currentBet: number;
   isBet?: boolean;
   disabled: boolean;
   onConfirm: (amount: number) => void;
@@ -23,12 +28,26 @@ export function RaiseControl({
 }) {
   const [inputValue, setInputValue] = useState<string>(String(minRaiseAmount));
 
-  // Sincroniza se os limites mudarem devido a atualizações na mesa
+  // Sincroniza e reseta a seleção se qualquer limite ou estado financeiro da mesa mudar
   useEffect(() => {
     setInputValue(String(minRaiseAmount));
-  }, [minRaiseAmount, maxRaiseAmount]);
+  }, [minRaiseAmount, maxRaiseAmount, currentBet, playerRoundCommitted, playerChips]);
 
   const step = minRaiseIncrement > 0 ? minRaiseIncrement : 1;
+  const sliderStep =
+    minRaiseIncrement > 1 && (maxRaiseAmount - minRaiseAmount) % minRaiseIncrement === 0
+      ? minRaiseIncrement
+      : 1;
+
+  const presets = useMemo<BetPreset[]>(() => {
+    return getBetPresets({
+      pot,
+      currentBet,
+      playerRoundCommitted,
+      minRaiseAmount,
+      maxRaiseAmount,
+    });
+  }, [pot, currentBet, playerRoundCommitted, minRaiseAmount, maxRaiseAmount]);
 
   const trimmed = inputValue.trim();
   const isStrictInt = /^\d+$/.test(trimmed);
@@ -37,7 +56,9 @@ export function RaiseControl({
 
   let validationError: string | null = null;
   if (trimmed === '') {
-    validationError = 'Informe um valor para o aumento.';
+    validationError = isBet
+      ? 'Informe um valor para a aposta.'
+      : 'Informe um valor para o aumento.';
   } else if (!isStrictInt || !isSafeInt) {
     validationError = 'O valor deve ser um número inteiro, sem casas decimais.';
   } else if (parsed < minRaiseAmount) {
@@ -45,7 +66,7 @@ export function RaiseControl({
   } else if (parsed > maxRaiseAmount) {
     validationError = `O valor máximo disponível é ${maxRaiseAmount.toLocaleString('pt-BR')}.`;
   } else if (parsed - playerRoundCommitted > playerChips) {
-    validationError = 'Fichas insuficientes.';
+    validationError = 'Fichas insuficientes no seu stack.';
   }
 
   const isValid = validationError === null && parsed !== null;
@@ -53,6 +74,19 @@ export function RaiseControl({
   const isAllIn = parsedAmount === maxRaiseAmount;
   const extraNeeded =
     parsedAmount !== null ? Math.max(0, parsedAmount - playerRoundCommitted) : null;
+
+  // Cálculo da porcentagem para preenchimento visual do slider
+  const currentNumeric = parsed ?? minRaiseAmount;
+  const fillPercent =
+    maxRaiseAmount > minRaiseAmount
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((currentNumeric - minRaiseAmount) / (maxRaiseAmount - minRaiseAmount)) * 100,
+          ),
+        )
+      : 0;
 
   const handleDecrease = () => {
     const base = isSafeInt && parsed !== null ? parsed : minRaiseAmount;
@@ -81,6 +115,7 @@ export function RaiseControl({
         </button>
       </div>
 
+      {/* Feedback Financeiro Imediato */}
       <div className="raise-feedback">
         <div className="raise-target-display">
           <small>TOTAL DA APOSTA NA STREET</small>
@@ -96,6 +131,55 @@ export function RaiseControl({
         </div>
       </div>
 
+      {/* Slider Fluido de Aposta */}
+      <div className="raise-slider-container">
+        <div className="raise-slider-wrapper">
+          <input
+            type="range"
+            min={minRaiseAmount}
+            max={maxRaiseAmount}
+            step={sliderStep}
+            value={parsed !== null ? Math.min(maxRaiseAmount, Math.max(minRaiseAmount, parsed)) : minRaiseAmount}
+            onChange={e => setInputValue(e.target.value)}
+            disabled={disabled}
+            className="raise-slider"
+            style={{ '--slider-fill': `${fillPercent}%` } as React.CSSProperties}
+            aria-label="Ajustar valor da aposta pelo controle deslizante"
+          />
+        </div>
+        <div className="raise-slider-labels">
+          <span>Mín: {minRaiseAmount.toLocaleString('pt-BR')}</span>
+          <span>Máx: {maxRaiseAmount.toLocaleString('pt-BR')}</span>
+        </div>
+      </div>
+
+      {/* Atalhos Rápidos: MÍN., ½ POTE, POTE, MÁX. */}
+      <div className="raise-presets" role="group" aria-label="Atalhos rápidos de aposta">
+        {presets.map(preset => {
+          const isActive = parsedAmount === preset.amount;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className={`preset-btn ${isActive ? 'active' : ''} ${preset.isAllIn ? 'preset-allin' : ''}`}
+              onClick={() => setInputValue(String(preset.amount))}
+              disabled={disabled}
+              aria-label={
+                preset.id === 'max'
+                  ? `MÁX. All-in (${preset.amount.toLocaleString('pt-BR')})`
+                  : `${preset.label} (${preset.amount.toLocaleString('pt-BR')} fichas)`
+              }
+            >
+              <span className="preset-name">{preset.label}</span>
+              <span className="preset-val tabular-nums">
+                {preset.amount.toLocaleString('pt-BR')}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Ajuste Fino e Digitação Direta */}
       <div className="raise-stepper">
         <button
           type="button"
@@ -117,7 +201,7 @@ export function RaiseControl({
           onChange={e => setInputValue(e.target.value)}
           disabled={disabled}
           className="raise-input tabular-nums"
-          aria-label="Valor total do raise"
+          aria-label={isBet ? 'Valor da aposta' : 'Valor total do aumento'}
           aria-invalid={!isValid}
           aria-errormessage={validationError ? 'raise-error-msg' : undefined}
         />
@@ -133,34 +217,13 @@ export function RaiseControl({
         </button>
       </div>
 
-      <div className="raise-presets">
-        <button
-          type="button"
-          className={`preset-btn ${parsedAmount === minRaiseAmount ? 'active' : ''}`}
-          onClick={() => setInputValue(String(minRaiseAmount))}
-          disabled={disabled}
-        >
-          Mínimo ({minRaiseAmount.toLocaleString('pt-BR')})
-        </button>
-
-        {maxRaiseAmount > minRaiseAmount && (
-          <button
-            type="button"
-            className={`preset-btn ${parsedAmount === maxRaiseAmount ? 'active' : ''}`}
-            onClick={() => setInputValue(String(maxRaiseAmount))}
-            disabled={disabled}
-          >
-            All-in ({maxRaiseAmount.toLocaleString('pt-BR')})
-          </button>
-        )}
-      </div>
-
       {validationError && (
         <p id="raise-error-msg" className="raise-error" role="alert">
           {validationError}
         </p>
       )}
 
+      {/* Ações Finais */}
       <div className="raise-actions">
         <button
           type="button"

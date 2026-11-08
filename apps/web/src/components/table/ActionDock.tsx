@@ -208,6 +208,23 @@ export function ActionDock({
   // É a vez do jogador: Console Funcional de Apostas
   const isBet = (allowed?.currentBet ?? 0) === 0;
 
+  // Se o jogador estiver enfrentando uma aposta e o valor necessário para pagar
+  // consumir todo o seu stack disponível (ou allInType for 'call'), o Call já é um All-in.
+  const isCallAllIn =
+    allowed?.canCall === true &&
+    (allowed.allInType === 'call' || currentChips <= allowed.callAmount);
+
+  // Distinção entre All-in total (que iguala o valor da aposta) e All-in parcial (insuficiente para igualar)
+  const isPartialCallAllIn =
+    isCallAllIn &&
+    (meInHand?.roundCommitted ?? 0) + currentChips < (allowed?.currentBet ?? 0);
+
+  // O botão dedicado "All-in" só deve ser exibido quando representar um Aumento (Raise)
+  // ou quando o jogador não estiver em uma situação onde o Call já seja o seu único All-in.
+  // Evita a redundância de exibir "Pagar X (All-in)" e "All-in (X)" lado a lado.
+  const showDedicatedAllInButton =
+    allowed?.canAllIn === true && !isCallAllIn;
+
   return (
     <footer className="action-dock action-dock-active" aria-label="Painel de ações de aposta">
       {showRaise && allowed?.canRaise && allowed.minRaiseAmount !== null && allowed.maxRaiseAmount !== null ? (
@@ -217,6 +234,8 @@ export function ActionDock({
           minRaiseIncrement={allowed.minRaiseIncrement ?? game.hand.bigBlind}
           playerRoundCommitted={meInHand?.roundCommitted ?? 0}
           playerChips={currentChips}
+          pot={game.hand.pot}
+          currentBet={allowed.currentBet ?? 0}
           isBet={isBet}
           disabled={isActionDisabled}
           onConfirm={amount => void handleRaiseSubmit(amount)}
@@ -259,17 +278,23 @@ export function ActionDock({
                 className="action-btn action-btn-call"
                 disabled={isActionDisabled}
                 onClick={() => {
-                  if (allowed.callAmount >= currentChips) {
+                  if (isCallAllIn) {
                     setAllInIntent({ type: 'call' });
                     setConfirmAllIn(true);
                   } else {
                     void handleCall();
                   }
                 }}
-                aria-label={`Pagar ${allowed.callAmount} fichas`}
+                aria-label={
+                  isPartialCallAllIn
+                    ? `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas (All-in parcial)`
+                    : isCallAllIn
+                      ? `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas (All-in)`
+                      : `Pagar ${allowed.callAmount.toLocaleString('pt-BR')} fichas`
+                }
               >
                 Pagar {allowed.callAmount.toLocaleString('pt-BR')}
-                {allowed.callAmount >= currentChips ? ' (All-in)' : ''}
+                {isCallAllIn ? ' (All-in)' : ''}
               </button>
             ) : null}
 
@@ -286,8 +311,8 @@ export function ActionDock({
               </button>
             )}
 
-            {/* 4. All-in */}
-            {allowed?.canAllIn && (
+            {/* 4. All-in (apenas quando for ação distinta do call) */}
+            {showDedicatedAllInButton && (
               <button
                 type="button"
                 className="action-btn action-btn-allin"
@@ -324,7 +349,9 @@ export function ActionDock({
           allInIntent?.type === 'raise'
             ? `Você apostará todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (aumento total de ${allInIntent.amount.toLocaleString('pt-BR')} fichas na rodada).`
             : allInIntent?.type === 'call'
-              ? `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in).`
+              ? isPartialCallAllIn
+                ? `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in parcial insuficiente para cobrir o total da aposta).`
+                : `Você pagará com todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa (All-in).`
               : `Você apostará todas as suas ${currentChips.toLocaleString('pt-BR')} fichas restantes na mesa.`
         }
         confirmLabel="Confirmar All-in"
