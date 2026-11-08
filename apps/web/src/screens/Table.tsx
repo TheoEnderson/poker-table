@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRoom } from '../hooks/useRoom';
 import { forgetSession, loadSession } from '../lib/sessions';
 import { ErrorNotice } from '../components/Layout';
@@ -6,11 +6,20 @@ import { SeatMap } from '../components/SeatMap';
 import { Invite } from '../components/Invite';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ActiveTable } from '../components/table/ActiveTable';
+import { HostParticipantsManager } from '../components/HostParticipantsManager';
+import type { RoomState } from '@poker-table/protocol';
 
 export function Table({ code }: { code: string }) {
   const credentials = useMemo(() => loadSession(code), [code]);
   const { room, status, error, pending, command, sync } = useRoom(credentials);
   const [confirm, setConfirm] = useState(false);
+  const [playerToRemove, setPlayerToRemove] = useState<RoomState['players'][number] | null>(null);
+
+  useEffect(() => {
+    if (status === 'ended') {
+      forgetSession(code);
+    }
+  }, [status, code]);
 
   if (!credentials) {
     return (
@@ -24,10 +33,40 @@ export function Table({ code }: { code: string }) {
     );
   }
 
+  if (status === 'ended') {
+    return (
+      <section className="form-page session-ended-page">
+        <h1>Sessão encerrada</h1>
+        <ErrorNotice message={error || 'Sua sessão nesta mesa não está mais ativa.'} />
+        <p role="status">
+          {error.includes('removido')
+            ? 'Você foi removido da sala pelo anfitrião. Seu assento foi liberado.'
+            : 'Sua sessão nesta mesa foi encerrada. Para participar novamente, entre na mesa com um novo convite.'}
+        </p>
+        <div className="button-group">
+          <a
+            className="button primary full"
+            href={`/join/${code}`}
+            onClick={() => forgetSession(code)}
+          >
+            Entrar novamente na mesa
+          </a>
+          <a
+            href="/"
+            className="button secondary full"
+            onClick={() => forgetSession(code)}
+          >
+            Voltar ao início
+          </a>
+        </div>
+      </section>
+    );
+  }
+
   if (!room) {
     return (
       <section className="form-page">
-        <h1>{status === 'ended' ? 'Sessão indisponível' : 'Retomando sua mesa…'}</h1>
+        <h1>Retomando sua mesa…</h1>
         <ErrorNotice message={error} />
         <p role="status">
           {status === 'connecting'
@@ -37,17 +76,6 @@ export function Table({ code }: { code: string }) {
         <a href="/" className="button secondary">
           Voltar ao início
         </a>
-        {status === 'ended' && (
-          <button
-            className="text-button"
-            onClick={() => {
-              forgetSession(code);
-              location.assign(`/join/${code}`);
-            }}
-          >
-            Esquecer esta sessão neste navegador
-          </button>
-        )}
       </section>
     );
   }
@@ -191,9 +219,7 @@ export function Table({ code }: { code: string }) {
             <span className={status === 'connected' ? 'connected-dot' : 'offline-dot'} />
             {status === 'connected'
               ? 'Conectado · mesa sincronizada'
-              : status === 'ended'
-                ? 'Sessão encerrada'
-                : 'Reconectando… seu lugar está reservado.'}
+              : 'Reconectando… seu lugar está reservado.'}
             <button className="text-button" onClick={sync} disabled={disabled}>
               Sincronizar
             </button>
@@ -278,6 +304,14 @@ export function Table({ code }: { code: string }) {
             <aside>
               <Invite code={room.code} />
 
+              {isHost && (
+                <HostParticipantsManager
+                  room={room}
+                  disabled={disabled}
+                  onRemove={player => setPlayerToRemove(player)}
+                />
+              )}
+
               <section className="panel profile">
                 <h2>Seu lugar à mesa</h2>
                 <form onSubmit={e => void rename(e)}>
@@ -345,6 +379,21 @@ export function Table({ code }: { code: string }) {
         pending={pending}
         onCancel={() => setConfirm(false)}
         onConfirm={() => void finish()}
+      />
+
+      <ConfirmDialog
+        open={playerToRemove !== null}
+        title={`Remover ${playerToRemove?.name}?`}
+        description={`Remover ${playerToRemove?.name} da sala? O assento será liberado e o jogador precisará entrar novamente para participar.`}
+        confirmLabel="Remover jogador"
+        pending={pending}
+        onCancel={() => setPlayerToRemove(null)}
+        onConfirm={async () => {
+          if (playerToRemove) {
+            await command({ type: 'remove-player', playerId: playerToRemove.id });
+            setPlayerToRemove(null);
+          }
+        }}
       />
     </div>
   );

@@ -62,6 +62,11 @@ export const nextHandCommandSchema = z.strictObject({
   ...commandBase,
   type: z.literal('next-hand'),
 });
+export const removePlayerCommandSchema = z.strictObject({
+  ...commandBase,
+  type: z.literal('remove-player'),
+  playerId: z.string().uuid(),
+});
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('select-seat'), seat: z.number().int().min(1).max(10).nullable() }),
   z.strictObject({ ...commandBase, type: z.literal('rename'), name: displayName }),
@@ -74,6 +79,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   settleHandCommandSchema,
   nextHandCommandSchema,
   z.strictObject({ ...commandBase, type: z.literal('reset-game') }),
+  removePlayerCommandSchema,
 ]);
 
 export const participantSchema = z.strictObject({ id: z.uuid(), name: displayName, seat: z.number().int().nullable(), connected: z.boolean(), isHost: z.boolean() });

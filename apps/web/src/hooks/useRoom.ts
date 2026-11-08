@@ -35,16 +35,17 @@ export function useRoom(credentials: Credentials | null) {
       autoConnect: false,
     });
     socketRef.current = socket;
+    let ended = false;
     socket.on('room:state', accept);
     socket.on('connect', () => { setStatus('connected'); setError(''); sync(); });
-    socket.on('disconnect', reason => { if (reason !== 'io server disconnect') setStatus('disconnected'); });
+    socket.on('disconnect', reason => { if (!ended && reason !== 'io server disconnect') setStatus('disconnected'); });
     socket.on('connect_error', err => {
       const code = (err as Error & { data?: { code?: string } }).data?.code;
-      if (code === 'UNAUTHORIZED' || code === 'ROOM_CLOSED' || code === 'INVALID_INPUT') { setStatus('ended'); socket.disconnect(); }
-      else setStatus('disconnected');
+      if (code === 'UNAUTHORIZED' || code === 'ROOM_CLOSED' || code === 'INVALID_INPUT') { ended = true; setStatus('ended'); socket.disconnect(); }
+      else if (!ended) setStatus('disconnected');
       setError(code ? err.message : 'Servidor indisponível. Reconectando automaticamente…');
     });
-    socket.on('session:ended', reason => { setError(reason); setStatus('ended'); socket.disconnect(); });
+    socket.on('session:ended', reason => { ended = true; setError(reason); setStatus('ended'); socket.disconnect(); });
     const resume = () => { if (document.visibilityState === 'visible') { if (!socket.connected && socket.active) socket.connect(); sync(); } };
     document.addEventListener('visibilitychange', resume);
     socket.connect();

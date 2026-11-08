@@ -60,6 +60,12 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
             peer.disconnect(true);
           }
         }
+        if (command.type === 'remove-player') {
+          for (const peer of io.sockets.sockets.values()) if (peer.data.credentials.playerId === command.playerId) {
+            peer.emit('session:ended', 'Você foi removido da sala pelo anfitrião.');
+            peer.disconnect(true);
+          }
+        }
         if (command.type === 'close-room') {
           io.to(credentials.roomId).emit('session:ended', 'O anfitrião encerrou esta mesa.');
           io.in(credentials.roomId).disconnectSockets(true);

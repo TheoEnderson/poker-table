@@ -245,6 +245,21 @@ export class RoomService {
           this.store.db.prepare('UPDATE rooms SET game=NULL WHERE id=?').run(c.roomId);
           break;
         }
+        case 'remove-player': {
+          this.admin(c, row);
+          this.preparing(row);
+          if (command.playerId === row.host_id) {
+            throw new RoomError('INVALID_INPUT', 'O anfitrião não pode remover a si mesmo da sala.');
+          }
+          const target = this.store.db.prepare('SELECT id FROM participants WHERE id=? AND room_id=?')
+            .get(command.playerId, c.roomId) as { id: string } | undefined;
+          if (!target) {
+            throw new RoomError('NOT_FOUND', 'Participante não encontrado nesta mesa.');
+          }
+          this.store.db.prepare('DELETE FROM participants WHERE id=? AND room_id=?').run(command.playerId, c.roomId);
+          this.connections.delete(command.playerId);
+          break;
+        }
 
       }
       this.store.db.prepare('INSERT INTO commands(room_id,player_id,command_id,fingerprint) VALUES(?,?,?,?)').run(c.roomId, c.playerId, commandId, fingerprint);
