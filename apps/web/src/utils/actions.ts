@@ -43,8 +43,8 @@ export function formatActionTag(action: HandAction): { label: string; sub?: stri
     case 'raise': {
       const target = action.raiseTarget ?? action.roundCommitted;
       return action.isAllIn
-        ? { label: `RAISE ALL-IN ${target}`, sub: `(+${action.amount})`, className: 'tag-allin' }
-        : { label: `RAISE para ${target}`, sub: `(+${action.amount})`, className: 'tag-raise' };
+        ? { label: `ALL-IN ${target}`, sub: `(+${action.amount})`, className: 'tag-allin' }
+        : { label: `RAISE ${target}`, sub: `(+${action.amount})`, className: 'tag-raise' };
     }
     case 'small_blind':
       return { label: `SB ${action.amount}`, className: 'tag-blind' };

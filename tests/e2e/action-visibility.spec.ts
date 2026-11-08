@@ -81,9 +81,9 @@ test.describe('Action Visibility & Player Turn Indicators (Etapa UX)', () => {
       // In Bob's view:
       // Bob's card shows 'SUA VEZ'
       await expect(bobCardOnBob.locator('.tag-turn-self')).toHaveText('SUA VEZ');
-      // Alice's card shows 'RAISE para 60' (+50)
-      await expect(aliceCardOnBob.locator('.tag-raise')).toContainText('RAISE para 60');
-      await expect(aliceCardOnBob.locator('.tag-raise')).toContainText('+50');
+      // Alice's card shows 'RAISE 60' (compact tag) with '+50' in title
+      await expect(aliceCardOnBob.locator('.tag-raise')).toHaveText('RAISE 60');
+      await expect(aliceCardOnBob.locator('.tag-raise')).toHaveAttribute('title', 'RAISE 60 (+50)');
 
       // Bob's turn banner and MyStatusPanel:
       await expect(page2.locator('.turn-banner-self')).toContainText('É a sua vez de agir!');
@@ -110,7 +110,7 @@ test.describe('Action Visibility & Player Turn Indicators (Etapa UX)', () => {
 
       // Verifies state restoration after reload
       await expect(bobCardOnBobAfterReload.locator('.tag-turn-self')).toHaveText('SUA VEZ');
-      await expect(aliceCardOnBobAfterReload.locator('.tag-raise')).toContainText('RAISE para 60');
+      await expect(aliceCardOnBobAfterReload.locator('.tag-raise')).toHaveText('RAISE 60');
       await expect(page2.locator('.my-call-needed-tag')).toHaveText('Para igualar: 40');
       await expect(page2.locator('.last-action-bar')).toContainText('Alice aumentou para 60 (+50)');
 

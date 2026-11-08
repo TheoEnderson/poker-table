@@ -152,6 +152,17 @@
     max-width: 620px;
     margin: 0 auto;
     width: 100%;
+    padding-bottom: 80px;
+  }
+  @media (min-width: 768px) {
+    .active-table {
+      max-width: 760px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .active-table {
+      max-width: 980px;
+    }
   }
 
   .active-header {
@@ -203,6 +214,38 @@
   }
   .connection-text { flex: 1; }
   .sync-btn { padding: 4px 6px; font-size: 0.72rem; }
+
+  @media (max-width: 390px) {
+    .active-header {
+      padding: 6px 10px;
+      gap: 4px;
+    }
+    .table-brand {
+      font-size: 0.88rem;
+      gap: 6px;
+    }
+    .room-title {
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .header-code strong {
+      font-size: 0.88rem;
+    }
+    .active-connection-row {
+      font-size: 0.7rem;
+      gap: 6px;
+    }
+  }
+  @media (max-width: 320px) {
+    .room-title {
+      max-width: 95px;
+    }
+    .active-connection-row {
+      font-size: 0.66rem;
+    }
+  }
 
   /* Pot Summary */
   .pot-summary {
@@ -308,10 +351,10 @@
     background: #141f1a;
     border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 4px 10px;
+    padding: 6px 12px;
     font-size: 0.75rem;
     color: #f4eee1;
-    margin: 4px auto 0;
+    margin: 12px auto 0;
     max-width: 100%;
     box-sizing: border-box;
     overflow-wrap: anywhere;
@@ -438,6 +481,621 @@
   .street-showdown .street-badge { background: #3b2811; color: #fef3c7; border-color: #f59e0b; }
   .street-settled .street-badge { background: #1e293b; color: #93c5fd; border-color: #3b82f6; }
   .street-complete .street-badge { background: #2e1065; color: #e9d5ff; border-color: #a855f7; }
+
+  /* Virtual Table Container & 3-Tier Layout */
+  .virtual-table-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-sizing: border-box;
+  }
+
+  /* 1. Nível Superior: Barra de Status Externa (Street, Blinds e Turno) */
+  .table-top-status-bar {
+    background: var(--bg-surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 0 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    text-align: left;
+  }
+  .table-top-status-bar.pot-summary {
+    background: #141f1a;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    padding: 8px 12px;
+  }
+  .table-status-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-top-status-bar .turn-banner {
+    margin: 0;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+  }
+  @media (max-width: 480px) {
+    .table-top-status-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 6px 10px;
+    }
+    .table-status-meta {
+      justify-content: space-between;
+      width: 100%;
+    }
+    .table-top-status-bar .turn-banner {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* 2. Nível Central: Arena de Feltro Virtual */
+  .virtual-table-arena {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1.15;
+    min-height: 380px;
+    max-height: 520px;
+    margin: 28px auto 20px;
+    border-radius: 36px;
+    overflow: visible;
+    box-sizing: border-box;
+  }
+  .virtual-table-arena.seats-dense {
+    aspect-ratio: 1 / 1.35;
+    min-height: 480px;
+    max-height: 620px;
+    margin: 32px auto 22px;
+  }
+  @media (min-width: 768px) {
+    .virtual-table-arena {
+      aspect-ratio: 16 / 10;
+      min-height: 440px;
+      max-height: 580px;
+    }
+    .virtual-table-arena.seats-dense {
+      aspect-ratio: 16 / 10;
+      min-height: 460px;
+      max-height: 600px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .virtual-table-arena {
+      aspect-ratio: 16 / 9;
+      min-height: 480px;
+      max-height: 620px;
+    }
+    .virtual-table-arena.seats-dense {
+      aspect-ratio: 16 / 9;
+      min-height: 520px;
+      max-height: 640px;
+    }
+  }
+
+  .table-felt-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 0 40px rgba(0, 0, 0, 0.6);
+    z-index: 1;
+  }
+  .table-felt-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Centro da Mesa: Pote e Cartas Comunitárias */
+  .table-center-content {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 2;
+    pointer-events: none;
+    width: max-content;
+    max-width: 220px;
+  }
+
+  /* Pote da Mesa (Ultra-compacto) */
+  .table-pot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: rgba(10, 24, 16, 0.88);
+    border: 1px solid rgba(226, 188, 115, 0.5);
+    backdrop-filter: blur(4px);
+    border-radius: 10px;
+    padding: 3px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  }
+  .pot-label {
+    font-size: 0.56rem;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    font-weight: 700;
+    line-height: 1;
+    margin: 0;
+  }
+  .pot-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
+  }
+  .pot-stack-icon {
+    font-size: 0.85rem;
+  }
+  .pot-chips-row .chip-amount {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .side-pots-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .side-pot-pill {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #fde68a;
+    background: rgba(43, 34, 12, 0.9);
+    border: 1px solid #786431;
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+
+  /* Cartas Comunitárias */
+  .community-cards-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .community-cards-slots {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .community-card-slot {
+    width: 26px;
+    height: 38px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @media (min-width: 360px) {
+    .community-card-slot {
+      width: 28px;
+      height: 42px;
+      gap: 5px;
+    }
+  }
+  @media (min-width: 390px) {
+    .community-card-slot {
+      width: 32px;
+      height: 46px;
+    }
+  }
+  @media (min-width: 768px) {
+    .community-card-slot {
+      width: 40px;
+      height: 56px;
+      border-radius: 6px;
+    }
+    .community-cards-slots {
+      gap: 6px;
+    }
+  }
+  .slot-hidden {
+    border: 1px dashed rgba(212, 175, 55, 0.3);
+    background: rgba(14, 38, 26, 0.4);
+  }
+  .slot-revealed {
+    border: 1px solid #d4af37;
+    background: #fdfaf2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+  .symbolic-board-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ffffff 0%, #f4eee1 100%);
+    border-radius: 3px;
+    padding: 2px;
+    box-sizing: border-box;
+  }
+  .card-inner-frame {
+    width: 100%;
+    height: 100%;
+    border: 1px solid rgba(180, 140, 60, 0.35);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card-suit-symbol {
+    font-size: 0.9rem;
+    color: #1a2921;
+    line-height: 1;
+  }
+  .symbolic-empty-slot {
+    color: rgba(212, 175, 55, 0.3);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .community-cards-caption {
+    font-size: 0.56rem;
+    color: #c5d8cc;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    line-height: 1.1;
+  }
+  .community-status-badge {
+    background: rgba(10, 24, 16, 0.7);
+    padding: 1px 5px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Camada de Assentos ao Redor da Mesa */
+  .table-seats-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .table-seat-slot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .seat-pod-wrapper {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+    z-index: 4;
+  }
+
+  /* Seat Pod: Cápsula Ergonômica Compacta */
+  .player-card.seat-pod,
+  .seat-pod {
+    width: 76px;
+    min-height: 52px;
+    padding: 3px 4px;
+    background: rgba(16, 23, 19, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    gap: 1px;
+  }
+  @media (min-width: 360px) {
+    .player-card.seat-pod,
+    .seat-pod {
+      width: 80px;
+      min-height: 54px;
+    }
+  }
+  @media (min-width: 390px) {
+    .player-card.seat-pod,
+    .seat-pod {
+      width: 84px;
+      min-height: 56px;
+      padding: 4px;
+    }
+  }
+  @media (min-width: 768px) {
+    .player-card.seat-pod,
+    .seat-pod {
+      width: 96px;
+      min-height: 62px;
+      padding: 5px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .player-card.seat-pod,
+    .seat-pod {
+      width: 108px;
+      min-height: 68px;
+      padding: 6px 7px;
+      border-radius: 10px;
+    }
+    .seat-pod .card-name {
+      font-size: 0.78rem;
+    }
+    .seat-pod .card-stack .chip-amount {
+      font-size: 0.8rem;
+    }
+    .seat-pod .action-tag {
+      font-size: 0.62rem;
+      padding: 2px 5px;
+    }
+  }
+
+  .player-card.pod-self,
+  .pod-self {
+    width: 84px;
+    border-color: var(--gold);
+    background: rgba(24, 34, 28, 0.96);
+    box-shadow: 0 3px 10px rgba(226, 188, 115, 0.3);
+  }
+  @media (min-width: 360px) {
+    .player-card.pod-self,
+    .pod-self {
+      width: 88px;
+    }
+  }
+  @media (min-width: 390px) {
+    .player-card.pod-self,
+    .pod-self {
+      width: 92px;
+    }
+  }
+  @media (min-width: 768px) {
+    .player-card.pod-self,
+    .pod-self {
+      width: 104px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .player-card.pod-self,
+    .pod-self {
+      width: 118px;
+      min-height: 72px;
+    }
+  }
+
+  .pod-turn-self {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(226, 188, 115, 0.6);
+    animation: pulse-turn-self 1.8s infinite;
+  }
+  .pod-turn {
+    border-color: var(--emerald);
+    box-shadow: 0 0 14px var(--emerald-glow);
+    animation: pulse-turn 2s infinite;
+  }
+  .pod-folded {
+    opacity: 0.42;
+    filter: grayscale(0.5);
+  }
+  .pod-allin {
+    border-color: #ef4444;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  }
+  .pod-offline {
+    border-style: dashed;
+    border-color: #f87171;
+  }
+
+  /* Configuração Densa para 7 a 10 Jogadores */
+  .seats-dense .player-card.seat-pod,
+  .seats-dense .seat-pod {
+    width: 68px;
+    min-height: 48px;
+    padding: 2px 3px;
+    border-radius: 6px;
+  }
+  .seats-dense .player-card.pod-self,
+  .seats-dense .pod-self {
+    width: 76px;
+    min-height: 50px;
+  }
+  @media (min-width: 1024px) {
+    .seats-dense .player-card.seat-pod,
+    .seats-dense .seat-pod {
+      width: 86px;
+      min-height: 56px;
+      padding: 3px 5px;
+    }
+    .seats-dense .player-card.pod-self,
+    .seats-dense .pod-self {
+      width: 94px;
+      min-height: 60px;
+    }
+    .seats-dense .card-name {
+      font-size: 0.7rem;
+    }
+  }
+  .seats-dense .card-name {
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+  .seats-dense .card-seat {
+    font-size: 0.54rem;
+  }
+  .seats-dense .badge {
+    font-size: 0.44rem;
+    padding: 0 2px;
+  }
+  .seats-dense .card-stack .chip-amount {
+    font-size: 0.65rem;
+  }
+  .seats-dense .action-tag {
+    font-size: 0.48rem;
+    padding: 1px 2px;
+  }
+  .seats-dense .symbolic-hole-card {
+    width: 11px;
+    height: 16px;
+  }
+  .seats-dense .pod-bet-badge {
+    font-size: 0.55rem;
+    padding: 1px 3px;
+  }
+
+  /* Cartas de mão simbólicas (Hole cards) */
+  .pod-hole-cards {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .symbolic-hole-card {
+    width: 13px;
+    height: 19px;
+    border-radius: 2px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    background: #1e1b18;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+  .card-left {
+    transform: rotate(-7deg) translateX(1px);
+  }
+  .card-right {
+    transform: rotate(7deg) translateX(-1px);
+  }
+  .mini-card-back {
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      45deg,
+      #7f1d1d,
+      #7f1d1d 2px,
+      #991b1b 2px,
+      #991b1b 4px
+    );
+  }
+
+  /* Elementos Internos do Seat Pod */
+  .seat-pod .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2px;
+    line-height: 1;
+  }
+  .seat-pod .card-seat {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--muted);
+    line-height: 1;
+  }
+  .seat-pod .badge {
+    font-size: 0.48rem;
+    padding: 1px 3px;
+    border-radius: 3px;
+    line-height: 1;
+  }
+  .seat-pod .card-identity {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.1;
+    margin: 1px 0;
+  }
+  .seat-pod .card-name {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #f4eee1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .seat-pod .presence-tag.offline {
+    font-size: 0.48rem;
+    color: #f87171;
+    line-height: 1;
+  }
+  .seat-pod .card-stack {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+  }
+  .seat-pod .card-stack .chip-amount {
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .seat-pod .card-status-bar {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .seat-pod .action-tag {
+    font-size: 0.56rem;
+    padding: 1px 4px;
+    line-height: 1.1;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Aposta individual na street projetada sobre o feltro */
+  .pod-bet-badge {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(15, 30, 22, 0.95);
+    border: 1px solid #e2bc73;
+    color: #fde68a;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 6px;
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    z-index: 6;
+  }
+  .bet-chip-glyph {
+    font-size: 0.65rem;
+  }
+  /* Posicionamento vetorial da aposta em direção ao centro */
+  .pod-bet-badge.zone-south { top: -12px; left: 50%; transform: translate(-50%, -100%); }
+  .pod-bet-badge.zone-north { bottom: -12px; left: 50%; transform: translate(-50%, 100%); }
+  .pod-bet-badge.zone-west, .pod-bet-badge.zone-south-west, .pod-bet-badge.zone-north-west { right: -8px; top: 50%; transform: translate(100%, -50%); }
+  .pod-bet-badge.zone-east, .pod-bet-badge.zone-south-east, .pod-bet-badge.zone-north-east { left: -8px; top: 50%; transform: translate(-100%, -50%); }
 
   /* Seat Strip (Fita de Jogadores) */
   .seat-strip-container {
@@ -748,14 +1406,33 @@
     margin-top: 4px;
   }
   .action-dock-active {
-    position: sticky;
+    position: fixed;
     bottom: 0;
-    z-index: 20;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    max-width: 620px;
+    width: 100%;
+    z-index: 50;
     background: rgba(18, 30, 24, 0.96);
     backdrop-filter: blur(12px);
-    border-color: var(--emerald);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4), 0 0 16px var(--emerald-glow);
-    padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--emerald);
+    border-left: 1px solid rgba(16, 185, 129, 0.3);
+    border-right: 1px solid rgba(16, 185, 129, 0.3);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--emerald-glow);
+    padding: 10px 14px max(12px, env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .action-dock-active {
+      max-width: 760px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .action-dock-active {
+      max-width: 980px;
+    }
   }
   .action-dock-content {
     display: flex;

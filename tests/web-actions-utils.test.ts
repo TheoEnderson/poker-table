@@ -184,7 +184,7 @@ describe('Web action utilities', () => {
       raiseTarget: 120,
       isAllIn: false,
     });
-    expect(raiseTag).toEqual({ label: 'RAISE para 120', sub: '(+80)', className: 'tag-raise' });
+    expect(raiseTag).toEqual({ label: 'RAISE 120', sub: '(+80)', className: 'tag-raise' });
 
     const raiseAllInTag = formatActionTag({
       seq: 7,
@@ -198,7 +198,7 @@ describe('Web action utilities', () => {
       raiseTarget: 240,
       isAllIn: true,
     });
-    expect(raiseAllInTag).toEqual({ label: 'RAISE ALL-IN 240', sub: '(+200)', className: 'tag-allin' });
+    expect(raiseAllInTag).toEqual({ label: 'ALL-IN 240', sub: '(+200)', className: 'tag-allin' });
   });
 
   it('formatActionNarrative returns human readable descriptions', () => {
