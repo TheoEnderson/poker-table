@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import type { GameState, RoomState } from '@poker-table/protocol';
 import { ChipAmount } from '../common/ChipAmount';
 import { formatActionTag, getPlayerLastActionInStreet } from '../../utils/actions';
 import type { SeatPosition } from '../../utils/table-geometry';
+import { PlayerBet } from './PlayerBet';
 
 export function SeatPod({
   player,
@@ -39,6 +41,52 @@ export function SeatPod({
 
   // Cartas de mão simbólicas (visíveis se o jogador ainda participa da mão)
   const hasHoleCards = !isFolded && (!isSettled || (settledPlayer && !settledPlayer.folded));
+
+  // Quando a mão encerra (fold geral, showdown ou settlement), as apostas são recolhidas ao pote
+  const isHandOver = isSettled || game.hand.status === 'hand_ended_by_fold' || game.hand.status === 'showdown';
+
+  // Animação de recolhimento suave de fichas ao mudar de street ou ao fim da rodada
+  const isFirstMount = useRef(true);
+  const prevStreet = useRef(game.hand.street);
+  const prevStatus = useRef(game.hand.status);
+  const prevRoundCommitted = useRef(player.roundCommitted);
+  const [sweepingAmount, setSweepingAmount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      prevStreet.current = game.hand.street;
+      prevStatus.current = game.hand.status;
+      prevRoundCommitted.current = player.roundCommitted;
+      return;
+    }
+
+    const streetChanged = game.hand.street !== prevStreet.current;
+    const handEnded =
+      (game.hand.status === 'hand_ended_by_fold' || game.hand.status === 'showdown' || isSettled) &&
+      prevStatus.current === 'in_progress';
+    const hadCommitted = prevRoundCommitted.current > 0;
+    const committedReset = player.roundCommitted === 0 || isHandOver;
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if ((streetChanged || handEnded) && hadCommitted && committedReset && !prefersReducedMotion) {
+      setSweepingAmount(prevRoundCommitted.current);
+      const timer = setTimeout(() => {
+        setSweepingAmount(null);
+      }, 350);
+      prevStreet.current = game.hand.street;
+      prevStatus.current = game.hand.status;
+      prevRoundCommitted.current = player.roundCommitted;
+      return () => clearTimeout(timer);
+    }
+
+    prevStreet.current = game.hand.street;
+    prevStatus.current = game.hand.status;
+    prevRoundCommitted.current = player.roundCommitted;
+  }, [game.hand.street, game.hand.status, isSettled, isHandOver, player.roundCommitted]);
 
   const podClasses = [
     'player-card',
@@ -105,6 +153,10 @@ export function SeatPod({
     return <span className="action-tag tag-active">NA MÃO</span>;
   };
 
+  const showActiveBet = !isHandOver && player.roundCommitted > 0;
+  const isSweeping = sweepingAmount !== null;
+  const displayedBetAmount = showActiveBet ? player.roundCommitted : (sweepingAmount ?? 0);
+
   return (
     <div
       className="seat-pod-wrapper"
@@ -154,15 +206,16 @@ export function SeatPod({
         </div>
       </article>
 
-      {/* Aposta individual na street (projetada sobre o feltro) */}
-      {!isSettled && player.roundCommitted > 0 && (
-        <div
-          className={`pod-bet-badge zone-${position.zone} tabular-nums`}
-          title={`Aposta na street: ${player.roundCommitted}`}
-        >
-          <span className="bet-chip-glyph" aria-hidden="true">🪙</span>
-          <span>{player.roundCommitted}</span>
-        </div>
+      {/* Aposta individual na street (projetada sobre o feltro com fichas gráficas ou recolhimento) */}
+      {(showActiveBet || isSweeping) && displayedBetAmount > 0 && (
+        <PlayerBet
+          amount={displayedBetAmount}
+          zone={position.zone}
+          isAllIn={isAllIn}
+          isFolded={isFolded}
+          isSweeping={isSweeping}
+          playerName={playerName}
+        />
       )}
     </div>
   );

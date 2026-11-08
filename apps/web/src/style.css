@@ -148,11 +148,12 @@
   .active-table {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     max-width: 620px;
     margin: 0 auto;
     width: 100%;
-    padding-bottom: 80px;
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 16px));
+    box-sizing: border-box;
   }
   @media (min-width: 768px) {
     .active-table {
@@ -545,19 +546,19 @@
   .virtual-table-arena {
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1.15;
-    min-height: 380px;
-    max-height: 520px;
-    margin: 28px auto 20px;
+    aspect-ratio: 1 / 1.06;
+    min-height: 350px;
+    max-height: 500px;
+    margin: 16px auto 14px;
     border-radius: 36px;
     overflow: visible;
     box-sizing: border-box;
   }
   .virtual-table-arena.seats-dense {
-    aspect-ratio: 1 / 1.35;
-    min-height: 480px;
-    max-height: 620px;
-    margin: 32px auto 22px;
+    aspect-ratio: 1 / 1.25;
+    min-height: 440px;
+    max-height: 580px;
+    margin: 20px auto 16px;
   }
   @media (min-width: 768px) {
     .virtual-table-arena {
@@ -616,39 +617,70 @@
     max-width: 220px;
   }
 
-  /* Pote da Mesa (Ultra-compacto) */
+  /* Pote da Mesa (Integrado ao feltro com fichas gráficas e badge elegante) */
   .table-pot {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    background: rgba(10, 24, 16, 0.88);
-    border: 1px solid rgba(226, 188, 115, 0.5);
-    backdrop-filter: blur(4px);
-    border-radius: 10px;
-    padding: 3px 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+    gap: 3px;
+    position: relative;
+    user-select: none;
+    transition: transform 0.25s ease;
   }
-  .pot-label {
+  .table-pot.pot-glow-active .pot-total-badge {
+    animation: pot-glow-pulse 0.35s ease-out;
+  }
+  @keyframes pot-glow-pulse {
+    0% {
+      box-shadow: 0 0 0 rgba(226, 188, 115, 0);
+    }
+    50% {
+      box-shadow: 0 0 16px rgba(226, 188, 115, 0.7);
+      transform: scale(1.04);
+    }
+    100% {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      transform: scale(1);
+    }
+  }
+  .pot-chips-cluster {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .pot-total-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(10, 26, 17, 0.88);
+    border: 1px solid rgba(226, 188, 115, 0.45);
+    backdrop-filter: blur(4px);
+    border-radius: 9999px;
+    padding: 2px 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+    line-height: 1;
+    transition: all 0.25s ease;
+  }
+  .pot-badge-title {
     font-size: 0.56rem;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     color: var(--gold);
     font-weight: 700;
     line-height: 1;
-    margin: 0;
+    text-transform: uppercase;
   }
-  .pot-chips-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  .pot-badge-divider {
+    font-size: 0.65rem;
+    color: rgba(226, 188, 115, 0.45);
     line-height: 1;
   }
-  .pot-stack-icon {
-    font-size: 0.85rem;
-  }
-  .pot-chips-row .chip-amount {
-    font-size: 0.95rem;
-    font-weight: 700;
+  .pot-value {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
   }
   .side-pots-container {
     display: flex;
@@ -658,13 +690,17 @@
     margin-top: 1px;
   }
   .side-pot-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.6rem;
     font-weight: 700;
     color: #fde68a;
-    background: rgba(43, 34, 12, 0.9);
-    border: 1px solid #786431;
-    padding: 1px 5px;
-    border-radius: 8px;
+    background: rgba(26, 20, 8, 0.92);
+    border: 1px solid rgba(226, 188, 115, 0.55);
+    padding: 1px 6px 1px 4px;
+    border-radius: 9999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
   /* Cartas Comunitárias */
@@ -712,13 +748,14 @@
     }
   }
   .slot-hidden {
-    border: 1px dashed rgba(212, 175, 55, 0.3);
-    background: rgba(14, 38, 26, 0.4);
+    border: 1px dashed rgba(212, 175, 55, 0.35);
+    background: rgba(9, 26, 17, 0.55);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
   }
   .slot-revealed {
-    border: 1px solid #d4af37;
+    border: 1.5px solid #d4af37;
     background: #fdfaf2;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
   }
   .symbolic-board-card {
     width: 100%;
@@ -726,7 +763,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #ffffff 0%, #f4eee1 100%);
+    background: linear-gradient(145deg, #ffffff 0%, #f7f3ea 100%);
     border-radius: 3px;
     padding: 2px;
     box-sizing: border-box;
@@ -734,20 +771,25 @@
   .card-inner-frame {
     width: 100%;
     height: 100%;
-    border: 1px solid rgba(180, 140, 60, 0.35);
+    border: 1px solid rgba(180, 140, 60, 0.25);
     border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
   }
-  .card-suit-symbol {
-    font-size: 0.9rem;
-    color: #1a2921;
-    line-height: 1;
+  .card-geometric-pattern {
+    width: 82%;
+    height: 82%;
+    display: block;
   }
   .symbolic-empty-slot {
-    color: rgba(212, 175, 55, 0.3);
+    color: rgba(212, 175, 55, 0.35);
     font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
     font-weight: 700;
   }
   .community-cards-caption {
@@ -1070,31 +1112,160 @@
     max-width: 100%;
   }
 
-  /* Aposta individual na street projetada sobre o feltro */
+  /* Aposta individual na street projetada sobre o feltro com fichas gráficas */
+  .player-bet-badge,
   .pod-bet-badge {
     position: absolute;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 2px;
-    background: rgba(15, 30, 22, 0.95);
-    border: 1px solid #e2bc73;
-    color: #fde68a;
-    font-size: 0.6rem;
+    gap: 3px;
+    background: rgba(14, 28, 20, 0.94);
+    border: 1px solid #d4af37;
+    color: #fef08a;
+    font-size: 0.62rem;
     font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 6px;
+    padding: 2px 6px 2px 3px;
+    border-radius: 12px;
     white-space: nowrap;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.65), 0 0 4px rgba(212, 175, 55, 0.2);
     pointer-events: none;
     z-index: 6;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
   }
+  .player-bet-chips {
+    display: inline-flex;
+    align-items: center;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  }
+  .player-bet-amount {
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  /* Destaque para All-In */
+  .player-bet-badge.bet-allin,
+  .pod-bet-badge.bet-allin {
+    border-color: #f59e0b;
+    background: rgba(38, 20, 6, 0.96);
+    color: #fde68a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7), 0 0 8px rgba(245, 158, 11, 0.45);
+  }
+  /* Estilo para aposta de jogador que deu fold na street */
+  .player-bet-badge.bet-folded,
+  .pod-bet-badge.bet-folded {
+    opacity: 0.65;
+    filter: grayscale(0.25);
+  }
+  /* Animação suave de entrada/aumento de aposta */
+  .player-bet-badge.bet-animating,
+  .pod-bet-badge.bet-animating {
+    animation: bet-push-pulse 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes bet-push-pulse {
+    0% {
+      opacity: 0.6;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  /* Animação de recolhimento suave de fichas ao centro da mesa ao fim da street */
+  .player-bet-badge.bet-sweeping,
+  .pod-bet-badge.bet-sweeping {
+    pointer-events: none;
+    z-index: 5;
+  }
+  .player-bet-badge.bet-sweeping.zone-south,
+  .pod-bet-badge.bet-sweeping.zone-south {
+    animation: sweep-to-center-south 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  .player-bet-badge.bet-sweeping.zone-north,
+  .pod-bet-badge.bet-sweeping.zone-north {
+    animation: sweep-to-center-north 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  .player-bet-badge.bet-sweeping.zone-west,
+  .player-bet-badge.bet-sweeping.zone-south-west,
+  .player-bet-badge.bet-sweeping.zone-north-west,
+  .pod-bet-badge.bet-sweeping.zone-west,
+  .pod-bet-badge.bet-sweeping.zone-south-west,
+  .pod-bet-badge.bet-sweeping.zone-north-west {
+    animation: sweep-to-center-west 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  .player-bet-badge.bet-sweeping.zone-east,
+  .player-bet-badge.bet-sweeping.zone-south-east,
+  .player-bet-badge.bet-sweeping.zone-north-east,
+  .pod-bet-badge.bet-sweeping.zone-east,
+  .pod-bet-badge.bet-sweeping.zone-south-east,
+  .pod-bet-badge.bet-sweeping.zone-north-east {
+    animation: sweep-to-center-east 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes sweep-to-center-south {
+    0% {
+      opacity: 1;
+      transform: translate(-50%, -100%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, calc(-100% - 46px)) scale(0.65);
+    }
+  }
+  @keyframes sweep-to-center-north {
+    0% {
+      opacity: 1;
+      transform: translate(-50%, 100%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, calc(100% + 46px)) scale(0.65);
+    }
+  }
+  @keyframes sweep-to-center-west {
+    0% {
+      opacity: 1;
+      transform: translate(100%, -50%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(100% + 46px), -50%) scale(0.65);
+    }
+  }
+  @keyframes sweep-to-center-east {
+    0% {
+      opacity: 1;
+      transform: translate(-100%, -50%) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(-100% - 46px), -50%) scale(0.65);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .player-bet-badge.bet-sweeping,
+    .pod-bet-badge.bet-sweeping {
+      display: none !important;
+    }
+    .player-bet-badge.bet-animating,
+    .pod-bet-badge.bet-animating {
+      animation: none !important;
+    }
+  }
+
   .bet-chip-glyph {
     font-size: 0.65rem;
   }
   /* Posicionamento vetorial da aposta em direção ao centro */
-  .pod-bet-badge.zone-south { top: -12px; left: 50%; transform: translate(-50%, -100%); }
-  .pod-bet-badge.zone-north { bottom: -12px; left: 50%; transform: translate(-50%, 100%); }
+  .player-bet-badge.zone-south, .pod-bet-badge.zone-south { top: -14px; left: 50%; transform: translate(-50%, -100%); }
+  .player-bet-badge.zone-north, .pod-bet-badge.zone-north { bottom: -14px; left: 50%; transform: translate(-50%, 100%); }
+  .player-bet-badge.zone-west, .player-bet-badge.zone-south-west, .player-bet-badge.zone-north-west,
   .pod-bet-badge.zone-west, .pod-bet-badge.zone-south-west, .pod-bet-badge.zone-north-west { right: -8px; top: 50%; transform: translate(100%, -50%); }
+  .player-bet-badge.zone-east, .player-bet-badge.zone-south-east, .player-bet-badge.zone-north-east,
   .pod-bet-badge.zone-east, .pod-bet-badge.zone-south-east, .pod-bet-badge.zone-north-east { left: -8px; top: 50%; transform: translate(-100%, -50%); }
 
   /* Seat Strip (Fita de Jogadores) */
@@ -1422,7 +1593,7 @@
     border-bottom: none;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5), 0 0 16px var(--emerald-glow);
-    padding: 10px 14px max(12px, env(safe-area-inset-bottom));
+    padding: 10px 14px max(14px, env(safe-area-inset-bottom, 14px));
   }
   @media (min-width: 768px) {
     .action-dock-active {
@@ -2283,4 +2454,3 @@
       transition: none !important;
     }
   }
-}

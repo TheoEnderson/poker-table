@@ -63,7 +63,34 @@ export function CommunityCards({ game }: { game: GameState }) {
               {isRevealed ? (
                 <div className="symbolic-board-card" aria-hidden="true">
                   <div className="card-inner-frame">
-                    <span className="card-suit-symbol">♠</span>
+                    <svg
+                      viewBox="0 0 24 34"
+                      className="card-geometric-pattern"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      {/* Moldura geométrica estilo filigrana clássica */}
+                      <rect
+                        x="2"
+                        y="2"
+                        width="20"
+                        height="30"
+                        rx="1.5"
+                        stroke="#c49d48"
+                        strokeWidth="0.8"
+                        strokeDasharray="2 1.5"
+                        opacity="0.75"
+                      />
+                      {/* Losango geométrico central abstrato (sem naipes nem valores virtuais) */}
+                      <path
+                        d="M12 9.5 L17 17 L12 24.5 L7 17 Z"
+                        stroke="#b88d3b"
+                        strokeWidth="0.9"
+                        fill="#eddcb2"
+                        fillOpacity="0.35"
+                      />
+                      <circle cx="12" cy="17" r="1.8" fill="#b88d3b" opacity="0.8" />
+                    </svg>
                   </div>
                 </div>
               ) : (
