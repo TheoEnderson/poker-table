@@ -219,7 +219,7 @@ export function startNextHand(
   }
 
   // Filtra jogadores elegíveis com fichas (> 0), descartando jogadores eliminados
-  const eligible = previousSettlement.players
+  const survivors = previousSettlement.players
     .filter(p => p.chips > 0)
     .map(p => ({
       id: p.id,
@@ -228,11 +228,75 @@ export function startNextHand(
       ...(p.name !== undefined ? { name: p.name } : {}),
     }));
 
+  const newPlayers: PlayerInput[] = [];
+  if (options?.newPlayers !== undefined) {
+    if (!Array.isArray(options.newPlayers)) {
+      throw new EngineError('INVALID_INPUT', 'A lista de novos jogadores deve ser um array.');
+    }
+    const newSeats = new Set<number>();
+    for (const player of options.newPlayers) {
+      if (typeof player !== 'object' || player === null) {
+        throw new EngineError('INVALID_INPUT', 'Jogador inválido na lista de novos jogadores.');
+      }
+      if (typeof player.id !== 'string' || player.id.trim().length === 0) {
+        throw new EngineError('INVALID_INPUT', 'O ID do jogador deve ser uma string não vazia.');
+      }
+      if (seenIds.has(player.id)) {
+        throw new EngineError('DUPLICATE_PLAYER_ID', `ID de jogador duplicado detectado: ${player.id}.`);
+      }
+      seenIds.add(player.id);
+
+      if (
+        typeof player.seat !== 'number' ||
+        !Number.isSafeInteger(player.seat) ||
+        player.seat < 1
+      ) {
+        throw new EngineError(
+          'INVALID_SEAT',
+          `Assento inválido para o jogador ${player.id}: ${String(player.seat)}.`,
+        );
+      }
+      if (survivors.some(s => s.seat === player.seat) || newSeats.has(player.seat)) {
+        throw new EngineError('DUPLICATE_SEAT', `Assento duplicado detectado: ${player.seat}.`);
+      }
+      newSeats.add(player.seat);
+
+      if (
+        typeof player.chips !== 'number' ||
+        !Number.isSafeInteger(player.chips) ||
+        player.chips <= 0
+      ) {
+        throw new EngineError(
+          'INVALID_CHIPS',
+          `Stack inválido para o novo jogador ${player.id}: ${String(player.chips)}.`,
+        );
+      }
+      if (player.name !== undefined && typeof player.name !== 'string') {
+        throw new EngineError('INVALID_INPUT', `Nome inválido para o jogador ${player.id}.`);
+      }
+      if (totalChips > Number.MAX_SAFE_INTEGER - player.chips) {
+        throw new EngineError('INVALID_CHIPS', 'A soma das fichas excede o limite seguro de inteiros.');
+      }
+      totalChips += player.chips;
+      newPlayers.push({
+        id: player.id,
+        seat: player.seat,
+        chips: player.chips,
+      });
+    }
+  }
+
+  const eligible = [...survivors, ...newPlayers].sort((a, b) => a.seat - b.seat);
+
   if (eligible.length < 2) {
     throw new EngineError(
       'INSUFFICIENT_PLAYERS',
       'São necessários ao menos 2 jogadores com fichas para iniciar uma nova mão.',
     );
+  }
+
+  if (eligible.length > 10) {
+    throw new EngineError('INVALID_INPUT', 'Quantidade de participantes inválida.');
   }
 
   // Determina a configuração de blinds (preservada ou reconfigurada)

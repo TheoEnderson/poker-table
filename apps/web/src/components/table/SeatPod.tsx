@@ -15,6 +15,8 @@ export function SeatPod({
   isBigBlind,
   isActor,
   position,
+  isWaitingForNextHand = false,
+  isEliminated = false,
 }: {
   player: GameState['hand']['players'][number];
   roomPlayer?: RoomState['players'][number];
@@ -25,6 +27,8 @@ export function SeatPod({
   isBigBlind: boolean;
   isActor: boolean;
   position: SeatPosition;
+  isWaitingForNextHand?: boolean;
+  isEliminated?: boolean;
 }) {
   const isSettled = game.status === 'hand-settled' || game.status === 'game-complete';
   const settledPlayer = isSettled
@@ -32,15 +36,15 @@ export function SeatPod({
     : null;
 
   const currentChips = settledPlayer ? settledPlayer.chips : player.chips;
-  const isFolded = settledPlayer ? settledPlayer.folded : player.folded;
-  const isAllIn = settledPlayer ? settledPlayer.isAllIn : player.isAllIn;
+  const isFolded = isEliminated || (settledPlayer ? settledPlayer.folded : player.folded);
+  const isAllIn = !isEliminated && (settledPlayer ? settledPlayer.isAllIn : player.isAllIn);
   const isConnected = roomPlayer?.connected ?? true;
   const playerName = roomPlayer?.name ?? `Assento ${player.seat}`;
 
   const playerLastAction = getPlayerLastActionInStreet(game.hand, player.id);
 
-  // Cartas de mão simbólicas (visíveis se o jogador ainda participa da mão)
-  const hasHoleCards = !isFolded && (!isSettled || (settledPlayer && !settledPlayer.folded));
+  // Cartas de mão simbólicas (visíveis se o jogador ainda participa da mão ativa)
+  const hasHoleCards = !isWaitingForNextHand && !isEliminated && !isFolded && (!isSettled || (settledPlayer && !settledPlayer.folded));
 
   // Quando a mão encerra (fold geral, showdown ou settlement), as apostas são recolhidas ao pote
   const isHandOver = isSettled || game.hand.status === 'hand_ended_by_fold' || game.hand.status === 'showdown';
@@ -94,7 +98,9 @@ export function SeatPod({
     `zone-${position.zone}`,
     isSelf ? 'card-self pod-self' : '',
     isActor ? (isSelf ? 'card-turn-self pod-turn-self' : 'card-turn pod-turn') : '',
-    isFolded ? 'card-folded pod-folded' : '',
+    isWaitingForNextHand ? 'pod-waiting' : '',
+    isEliminated ? 'card-folded pod-folded pod-eliminated' : '',
+    !isWaitingForNextHand && isFolded ? 'card-folded pod-folded' : '',
     isAllIn ? 'card-allin pod-allin' : '',
     !isConnected ? 'card-offline pod-offline' : '',
   ]
@@ -102,7 +108,15 @@ export function SeatPod({
     .join(' ');
 
   const renderStatusTag = () => {
-    if (isSettled && currentChips === 0) {
+    if (isWaitingForNextHand) {
+      return (
+        <span className="action-tag tag-waiting">
+          {isConnected ? 'AGUARDANDO' : 'AGUARDANDO · AUSENTE'}
+        </span>
+      );
+    }
+
+    if (isEliminated || (isSettled && currentChips === 0)) {
       return <span className="action-tag tag-eliminated">ELIMINADO</span>;
     }
 

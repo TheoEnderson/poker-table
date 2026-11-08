@@ -22,9 +22,11 @@ export function VirtualTable({
   selfId?: string;
 }) {
   const { hand } = game;
-  // Ordena os jogadores por assento para ancoragem física
-  const sortedPlayers = [...hand.players].sort((a, b) => a.seat - b.seat);
-  const selfIndex = sortedPlayers.findIndex(p => p.id === selfId);
+  // Ordena os jogadores sentados por assento para ancoragem física
+  const seatedPlayers = room.players
+    .filter(p => p.seat !== null)
+    .sort((a, b) => a.seat! - b.seat!);
+  const selfIndex = seatedPlayers.findIndex(p => p.id === selfId);
 
   const currentActor = hand.currentActorId
     ? room.players.find(p => p.id === hand.currentActorId)
@@ -81,7 +83,7 @@ export function VirtualTable({
 
       {/* 2. Nível Central: Feltro da Mesa com Pote, Cartas Comunitárias e Assentos */}
       <section
-        className={`virtual-table-arena ${sortedPlayers.length >= 7 ? 'seats-dense' : ''}`}
+        className={`virtual-table-arena ${seatedPlayers.length >= 7 ? 'seats-dense' : ''}`}
         aria-label="Feltro da mesa com jogadores"
       >
         <TableFelt />
@@ -94,21 +96,34 @@ export function VirtualTable({
 
         {/* Perímetro da Mesa: Assentos dos Jogadores */}
         <div className="table-seats-layer" role="list" aria-label="Jogadores na mesa">
-          {sortedPlayers.map((player, idx) => {
-            const roomPlayer = room.players.find(p => p.id === player.id);
-            const isSelf = player.id === selfId;
-            const isDealer = player.seat === hand.dealerSeat;
-            const isSmallBlind = player.seat === hand.smallBlindSeat;
-            const isBigBlind = player.seat === hand.bigBlindSeat;
-            const isActor = hand.status === 'in_progress' && player.id === hand.currentActorId;
+          {seatedPlayers.map((roomPlayer, idx) => {
+            const player = hand.players.find(p => p.id === roomPlayer.id);
+            const isSelf = roomPlayer.id === selfId;
+            const isWaitingForNextHand = !player && !(game.admittedPlayerIds?.includes(roomPlayer.id) ?? false);
+            const isEliminated = !player && !isWaitingForNextHand;
 
-            const relativeIndex = getRelativeSeatIndex(idx, selfIndex, sortedPlayers.length);
-            const position = getSeatPosition(sortedPlayers.length, relativeIndex);
+            const isDealer = player ? player.seat === hand.dealerSeat : false;
+            const isSmallBlind = player ? player.seat === hand.smallBlindSeat : false;
+            const isBigBlind = player ? player.seat === hand.bigBlindSeat : false;
+            const isActor = hand.status === 'in_progress' && player?.id === hand.currentActorId;
+
+            const relativeIndex = getRelativeSeatIndex(idx, selfIndex, seatedPlayers.length);
+            const position = getSeatPosition(seatedPlayers.length, relativeIndex);
+
+            const podPlayer = player ?? {
+              id: roomPlayer.id,
+              seat: roomPlayer.seat!,
+              chips: isWaitingForNextHand ? room.config.startingChips : 0,
+              roundCommitted: 0,
+              totalCommitted: 0,
+              folded: isEliminated,
+              isAllIn: false,
+            };
 
             return (
-              <div key={player.id} role="listitem" className="table-seat-slot">
+              <div key={roomPlayer.id} role="listitem" className="table-seat-slot">
                 <SeatPod
-                  player={player}
+                  player={podPlayer}
                   roomPlayer={roomPlayer}
                   game={game}
                   isSelf={isSelf}
@@ -117,6 +132,8 @@ export function VirtualTable({
                   isBigBlind={isBigBlind}
                   isActor={isActor}
                   position={position}
+                  isWaitingForNextHand={isWaitingForNextHand}
+                  isEliminated={isEliminated}
                 />
               </div>
             );

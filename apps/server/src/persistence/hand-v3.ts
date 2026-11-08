@@ -15,7 +15,6 @@ export function verifyGameV3(
     return total + n;
   }, 0);
 
-  const seated = participants.filter(p => p.seat !== null);
   require(Number.isSafeInteger(record.tableBudget) && record.tableBudget > 0);
 
   // A primeira mão começa com o primeiro assento elegível.
@@ -25,15 +24,31 @@ export function verifyGameV3(
     require(record.hand.handState.dealerSeat === firstSeat);
   }
 
+  if (record.admittedPlayerIds !== undefined) {
+    require(record.tableBudget === record.admittedPlayerIds.length * config.startingChips);
+  }
+
   if (record.status === 'hand-active') {
     if (record.handNumber === 1) {
-      require(record.tableBudget === config.startingChips * seated.length);
+      const handInitialCount = record.admittedPlayerIds?.length ?? record.hand.players.length;
+      require(record.tableBudget === config.startingChips * handInitialCount);
       verifyHandV2(record.hand, config, participants, record.tableBudget);
     } else {
       require(record.previousSettlement !== undefined);
       const prev = record.previousSettlement!;
-      require(sum(prev.players.map(p => p.chips)) === record.tableBudget);
-      const expectedInitial = JSON.parse(JSON.stringify(startNextHand(prev, { blinds: config })));
+      const newPlayers = record.hand.players
+        .filter(p => !prev.players.some(prevP => prevP.id === p.id))
+        .map(p => ({
+          id: p.id,
+          seat: p.seat,
+          chips: config.startingChips,
+        }));
+      const newPlayersBudget = newPlayers.length * config.startingChips;
+      require(sum(prev.players.map(p => p.chips)) + newPlayersBudget === record.tableBudget);
+      const expectedInitial = JSON.parse(JSON.stringify(startNextHand(prev, {
+        blinds: config,
+        newPlayers: newPlayers.length > 0 ? newPlayers : undefined,
+      })));
       require(isDeepStrictEqual(record.hand.handState, expectedInitial.handState));
       verifyHandV2(record.hand, config, participants, record.tableBudget);
     }

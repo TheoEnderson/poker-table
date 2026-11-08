@@ -51,13 +51,19 @@ export function ActionDock({
     ? game.settlement.players.find(p => p.id === selfId)
     : null;
 
-  const currentChips = settledPlayer ? settledPlayer.chips : (meInHand?.chips ?? 0);
-  const isEliminated = !isSpectator && ((isSettled && currentChips === 0) || (meInRoom?.seat !== null && !meInHand));
+  const isAdmitted = game.admittedPlayerIds?.includes(selfId) ?? (meInHand !== undefined);
+  const isWaitingForNextHand = !isSpectator && !meInHand && !isAdmitted;
+
+  const currentChips = isWaitingForNextHand
+    ? room.config.startingChips
+    : (settledPlayer ? settledPlayer.chips : (meInHand?.chips ?? 0));
+  const isEliminated = !isSpectator && !isWaitingForNextHand && ((isSettled && currentChips === 0) || (meInRoom?.seat !== null && !meInHand));
   const isFolded = settledPlayer ? settledPlayer.folded : (meInHand?.folded ?? false);
   const isAllIn = settledPlayer ? settledPlayer.isAllIn : (meInHand?.isAllIn ?? false);
 
   const isMyTurn =
     !isSpectator &&
+    !isWaitingForNextHand &&
     !isFolded &&
     !isAllIn &&
     !isEliminated &&
@@ -258,6 +264,7 @@ export function ActionDock({
 
     const canSelectPreActions =
       !isSpectator &&
+      !isWaitingForNextHand &&
       !isFolded &&
       !isAllIn &&
       !isEliminated &&
@@ -381,9 +388,15 @@ export function ActionDock({
       badgeType = 'info';
       icon = '👁';
     } else if (game.status === 'game-complete') {
-      message = 'Partida concluída. O torneio chegou ao fim.';
+      message = isWaitingForNextHand
+        ? 'Partida concluída. Aguarde o anfitrião iniciar uma nova partida para entrar com suas fichas.'
+        : 'Partida concluída. O torneio chegou ao fim.';
       badgeType = 'info';
       icon = '🏆';
+    } else if (isWaitingForNextHand) {
+      message = 'Aguardando a próxima mão para entrar na partida.';
+      badgeType = 'wait';
+      icon = '⏳';
     } else if (game.status === 'hand-settled') {
       message = 'Mão liquidada. Aguardando o anfitrião iniciar a próxima mão.';
       badgeType = 'wait';

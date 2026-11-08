@@ -235,4 +235,5 @@ export interface SettlementResult {
 
 export interface StartNextHandOptions {
   readonly blinds?: BlindsConfig;
+  readonly newPlayers?: readonly PlayerInput[];
 }

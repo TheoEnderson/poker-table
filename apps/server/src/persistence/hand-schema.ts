@@ -131,6 +131,7 @@ export const persistedV3Active = z.strictObject({
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
   previousSettlement: persistedSettlementSchema.optional(),
+  admittedPlayerIds: ids.optional(),
 });
 
 export const persistedV3Settled = z.strictObject({
@@ -141,6 +142,7 @@ export const persistedV3Settled = z.strictObject({
   decisions: z.array(potDecisionPersistenceSchema),
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
+  admittedPlayerIds: ids.optional(),
 });
 
 export const persistedV3Complete = z.strictObject({
@@ -152,6 +154,7 @@ export const persistedV3Complete = z.strictObject({
   decisions: z.array(potDecisionPersistenceSchema),
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
+  admittedPlayerIds: ids.optional(),
 });
 
 export const persistedHandSchema = z.union([

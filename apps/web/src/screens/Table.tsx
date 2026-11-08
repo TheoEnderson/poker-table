@@ -160,12 +160,14 @@ export function Table({ code }: { code: string }) {
                 <SeatMap
                   room={room}
                   selfId={credentials.playerId}
-                  disabled={disabled || gameStarted}
+                  disabled={disabled || (gameStarted && me?.seat !== null)}
                   onSelect={seat => void command({ type: 'select-seat', seat })}
                 />
 
                 <p className="table-hint">
-                  Partida iniciada. Os assentos estão reservados até o fim da mão.
+                  {me?.seat === null
+                    ? 'Escolha um assento disponível para entrar na próxima mão.'
+                    : 'Partida iniciada. Os assentos estão reservados até o fim da mão.'}
                 </p>
               </section>
 

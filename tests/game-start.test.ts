@@ -194,11 +194,11 @@ it('locks seats, active departures and late joins while preserving original reco
   const unseated = app.rooms.join(host.room.code, { name: 'Waiting' });
   const waitingSocket = await connect(unseated.credentials);
   const started = value(await command(socket, { type: 'start-game' }));
-  for (const s of [socket, sockets[1], waitingSocket]) for (const seat of [1, null]) {
+  for (const s of [socket, sockets[1]]) for (const seat of [1, null]) {
     expect(await command(s, { type: 'select-seat', seat })).toMatchObject({ ok: false, error: { code: 'GAME_IN_PROGRESS' } });
   }
   for (const s of [socket, sockets[1]]) expect(await command(s, { type: 'leave' })).toMatchObject({ ok: false, error: { code: 'GAME_IN_PROGRESS' } });
-  expect(await post(`/api/rooms/${host.room.code}/join`, { name: 'New', seat: 8 })).toMatchObject({ ok: false, error: { code: 'GAME_IN_PROGRESS' } });
+  expect(await post(`/api/rooms/${host.room.code}/join`, { name: 'New', seat: 8 })).toMatchObject({ ok: false, error: { code: 'SEAT_TAKEN' } });
   expect(await sync(socket)).toEqual(started);
   sockets[1].disconnect();
   await waitFor(() => !app.rooms.state(host.room.id).players.find(p => p.id === admissions[1].credentials.playerId)!.connected);
