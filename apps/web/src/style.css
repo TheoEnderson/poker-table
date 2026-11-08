@@ -1476,9 +1476,20 @@
   .tag-raise { background: #38240f; color: #fed7aa; border: 1px solid #ea580c; }
   .tag-blind { background: #1c2b23; color: #d1fae5; border: 1px solid #334d3f; }
   .tag-active { background: #17241e; color: #9ca3af; border: 1px solid #283d32; }
+  .tag-waiting { background: #26231a; color: #fde68a; border: 1px dashed rgba(226, 188, 115, 0.7); }
   .tag-offline { background: #2b1111; color: #fca5a5; border: 1px dashed #ef4444; }
   .tag-eliminated { background: #1f2937; color: #9ca3af; border: 1px dashed #4b5563; }
   .tag-sub { font-size: 0.85em; opacity: 0.9; margin-left: 2px; }
+
+  .seat-pod.pod-waiting {
+    border-color: rgba(226, 188, 115, 0.35);
+  }
+  .state-pill.state-waiting-next-hand {
+    background: #242118;
+    color: var(--gold);
+    border: 1px solid rgba(226, 188, 115, 0.4);
+    font-weight: 600;
+  }
 
   .card-self {
     border-color: #63532c;

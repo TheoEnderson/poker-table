@@ -115,17 +115,20 @@ export const gameStateSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('hand-active'),
     hand: handSnapshotSchema,
+    admittedPlayerIds: z.array(z.uuid()).optional(),
   }),
   z.strictObject({
     status: z.literal('hand-settled'),
     hand: handSnapshotSchema,
     settlement: settlementSnapshotSchema,
+    admittedPlayerIds: z.array(z.uuid()).optional(),
   }),
   z.strictObject({
     status: z.literal('game-complete'),
     hand: handSnapshotSchema,
     settlement: settlementSnapshotSchema,
     winnerId: z.uuid(),
+    admittedPlayerIds: z.array(z.uuid()).optional(),
   }),
 ]);
 export type GameState = z.infer<typeof gameStateSchema>;

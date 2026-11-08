@@ -21,9 +21,14 @@ export function MyStatusPanel({
     ? game.settlement.players.find(p => p.id === selfId)
     : null;
 
-  const currentChips = settledPlayer ? settledPlayer.chips : (meInHand?.chips ?? 0);
-  const isEliminated = !isSpectator && ((isSettled && currentChips === 0) || (meInRoom?.seat !== null && !meInHand));
-  const isMyTurn = !isSpectator && game.hand.status === 'in_progress' && game.hand.currentActorId === selfId;
+  const isAdmitted = game.admittedPlayerIds?.includes(selfId) ?? (meInHand !== undefined);
+  const isWaitingForNextHand = !isSpectator && !meInHand && !isAdmitted;
+
+  const currentChips = isWaitingForNextHand
+    ? room.config.startingChips
+    : (settledPlayer ? settledPlayer.chips : (meInHand?.chips ?? 0));
+  const isEliminated = !isSpectator && !isWaitingForNextHand && ((isSettled && currentChips === 0) || (meInRoom?.seat !== null && !meInHand));
+  const isMyTurn = !isSpectator && !isWaitingForNextHand && game.hand.status === 'in_progress' && game.hand.currentActorId === selfId;
   const isFolded = settledPlayer ? settledPlayer.folded : (meInHand?.folded ?? false);
   const isAllIn = settledPlayer ? settledPlayer.isAllIn : (meInHand?.isAllIn ?? false);
 
@@ -44,10 +49,10 @@ export function MyStatusPanel({
     >
       <div className="my-status-header">
         <span className="my-status-title">
-          {isSpectator ? 'MODO ESPECTADOR' : 'SEU STACK'}
+          {isSpectator ? 'MODO ESPECTADOR' : isWaitingForNextHand ? 'AGUARDANDO A PRÓXIMA MÃO' : 'SEU STACK'}
         </span>
         <span className="my-seat-badge" title={isSpectator ? 'Você não possui assento na mesa' : `Você está no assento ${meInRoom?.seat}`}>
-          {isSpectator ? 'Sem assento' : `Assento #${meInRoom?.seat}${isEliminated ? ' (Eliminado)' : ''}`}
+          {isSpectator ? 'Sem assento' : `Assento #${meInRoom?.seat}${isEliminated ? ' (Eliminado)' : isWaitingForNextHand ? ' · Aguardando' : ''}`}
         </span>
       </div>
 
@@ -61,15 +66,25 @@ export function MyStatusPanel({
             <>
               <ChipAmount value={currentChips} size="lg" className="my-stack-amount" />
               <div className="my-bet-info-row">
-                {meInHand && !isSettled && myRoundCommitted > 0 && (
+                {isWaitingForNextHand ? (
                   <span className="my-committed-tag tabular-nums">
-                    Sua aposta na street: {myRoundCommitted}
+                    {game.status === 'game-complete'
+                      ? `Entrará na nova partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`
+                      : `Entrará na partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`}
                   </span>
-                )}
-                {callNeeded > 0 && (
-                  <span className="my-call-needed-tag tabular-nums">
-                    Para igualar: {callNeeded}
-                  </span>
+                ) : (
+                  <>
+                    {meInHand && !isSettled && myRoundCommitted > 0 && (
+                      <span className="my-committed-tag tabular-nums">
+                        Sua aposta na street: {myRoundCommitted}
+                      </span>
+                    )}
+                    {callNeeded > 0 && (
+                      <span className="my-call-needed-tag tabular-nums">
+                        Para igualar: {callNeeded}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -79,10 +94,16 @@ export function MyStatusPanel({
         <div className="my-state-message">
           {isSpectator ? (
             <span className="state-pill state-spectator">Apenas observando</span>
+          ) : game.status === 'game-complete' ? (
+            <span className="state-pill state-complete" data-testid={isWaitingForNextHand ? 'waiting-reset-game' : undefined}>
+              {isWaitingForNextHand ? 'Aguardando nova partida' : 'Partida encerrada'}
+            </span>
+          ) : isWaitingForNextHand ? (
+            <span className="state-pill state-waiting state-waiting-next-hand" data-testid="waiting-next-hand">
+              Aguardando a próxima mão
+            </span>
           ) : isEliminated ? (
             <span className="state-pill state-eliminated">Você foi eliminado desta partida</span>
-          ) : game.status === 'game-complete' ? (
-            <span className="state-pill state-complete">Partida encerrada</span>
           ) : game.status === 'hand-settled' ? (
             <span className="state-pill state-settled">Mão encerrada</span>
           ) : isFolded ? (

@@ -7,10 +7,10 @@ import type { RoomConfig } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 
 export type StoredGame =
-  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number }
-  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult }
-  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number }
-  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number };
+  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[] }
+  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[] }
+  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[] }
+  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[] };
 
 
 function freeze<T>(value: T): T {
@@ -69,13 +69,11 @@ function verify(hand: HandFlowState, config: RoomConfig, participants: readonly 
   // da sala e compara todas as propriedades produzidas pelo motor.
   // A referência nunca substitui o estado salvo nem é persistida.
   const expected = startHandFlow({
-    players: participants
-      .filter(p => p.seat !== null)
-      .map(p => ({
-        id: p.id,
-        seat: p.seat!,
-        chips: config.startingChips,
-      })),
+    players: hand.players.map(p => ({
+      id: p.id,
+      seat: p.seat,
+      chips: config.startingChips,
+    })),
     blinds: {
       smallBlind: config.smallBlind,
       bigBlind: config.bigBlind,
@@ -103,25 +101,28 @@ export function encodeHand(hand: HandFlowState, config: RoomConfig, participants
 export function decodeGame(raw: string, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): StoredGame {
   try {
     const parsed = persistedHandSchema.parse(JSON.parse(raw));
-    const seated = participants.filter(p => p.seat !== null);
     if (parsed.version === 1) {
       verify(parsed.hand, config, participants);
+      const admittedPlayerIds = parsed.hand.players.map(p => p.id);
       return freeze({
         version: 1,
         status: 'hand-active',
         hand: parsed.hand,
         handNumber: 1,
-        tableBudget: config.startingChips * seated.length,
+        tableBudget: config.startingChips * admittedPlayerIds.length,
+        admittedPlayerIds,
       });
     }
     if (parsed.version === 2) {
       verifyHandV2(parsed.hand, config, participants);
+      const admittedPlayerIds = parsed.hand.players.map(p => p.id);
       return freeze({
         version: 2,
         status: 'hand-active',
         hand: parsed.hand,
         handNumber: 1,
-        tableBudget: config.startingChips * seated.length,
+        tableBudget: config.startingChips * admittedPlayerIds.length,
+        admittedPlayerIds,
       });
     }
     verifyGameV3(parsed, config, participants);

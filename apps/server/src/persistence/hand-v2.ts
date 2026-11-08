@@ -17,7 +17,7 @@ export function verifyHandV2(
   const { players, currentRound: round, handState: initial } = hand;
   const seated = participants.filter(p => p.seat !== null);
   if (expectedBudget === undefined) {
-    require(players.length === seated.length && players.length <= config.maxPlayers);
+    require(players.length >= 2 && players.length <= seated.length && players.length <= config.maxPlayers);
   } else {
     require(players.length >= 2 && players.length <= seated.length && players.length <= config.maxPlayers);
   }

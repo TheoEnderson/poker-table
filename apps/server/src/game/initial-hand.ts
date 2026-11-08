@@ -64,12 +64,14 @@ export function publicGame(game: StoredGame | HandFlowState): GameState {
       return gameStateSchema.parse({
         status: 'hand-active',
         hand: publicHand(game.hand),
+        admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
       });
     case 'hand-settled':
       return gameStateSchema.parse({
         status: 'hand-settled',
         hand: publicHand(game.hand),
         settlement: publicSettlement(game.settlement),
+        admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
       });
     case 'game-complete':
       return gameStateSchema.parse({
@@ -77,6 +79,7 @@ export function publicGame(game: StoredGame | HandFlowState): GameState {
         hand: publicHand(game.hand),
         settlement: publicSettlement(game.settlement),
         winnerId: game.winnerId,
+        admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
       });
   }
 }
