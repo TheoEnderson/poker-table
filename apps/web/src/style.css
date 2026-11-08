@@ -2489,6 +2489,126 @@
     font-size: 0.8rem;
     color: #fde68a;
   }
+
+  /* Gerenciamento de participantes pelo anfitrião */
+  .host-participants-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .host-participants-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .host-participants-header h2 {
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  .count-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gold);
+    background: rgba(226, 188, 115, 0.15);
+    border: 1px solid rgba(226, 188, 115, 0.3);
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  .host-participants-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .host-participant-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #1e3226;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .host-participant-item.participant-disconnected {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.35);
+  }
+  .host-participant-item.host-self-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .participant-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .participant-name {
+    font-size: 0.9rem;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .host-badge {
+    font-size: 0.75rem;
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .participant-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .participant-seat {
+    font-weight: 600;
+  }
+  .meta-separator {
+    opacity: 0.5;
+  }
+  .participant-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .status-online {
+    color: #86efac;
+  }
+  .status-offline {
+    color: #fde047;
+  }
+  .connected-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+  }
+  .host-protected-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 4px 8px;
+  }
+  .remove-participant-btn {
+    min-height: 38px;
+    padding: 6px 12px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .session-ended-page .button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    width: 100%;
+  }
   .showdown-pots-list {
     display: flex;
     flex-direction: column;
