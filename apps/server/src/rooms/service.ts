@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
-import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, type Admission, type Credentials, type RoomState } from '@poker-table/protocol';
+import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, advanceBlindsOnNextHand, adjustTrackerForServerDowntime, type Admission, type Credentials, type RoomState, type BlindsTracker } from '@poker-table/protocol';
 import { EngineError, startNextHand, type HandFlowState } from '@poker-table/engine';
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
@@ -17,6 +17,7 @@ const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export class RoomService {
   private readonly connections = new Map<string, Set<string>>();
+  readonly serverBootAt = Date.now();
   constructor(readonly store: Store) {}
   private row(id: string): RoomRow {
     const row = this.store.db.prepare('SELECT * FROM rooms WHERE id=?').get(id) as RoomRow | undefined;
@@ -36,13 +37,32 @@ export class RoomService {
     try { return configSchema.parse(JSON.parse(row.config)); }
     catch { throw new RoomError('STORAGE_ERROR', 'Configuração persistida da mesa inválida. Verifique o banco do servidor.'); }
   }
+  private getGame(row: RoomRow, config: ReturnType<typeof this.config>, players: PlayerRow[]): StoredGame | null {
+    if (row.game === null) return null;
+    let stored = decodeGame(row.game, config, players);
+    if (stored.blindsTracker?.lastSavedAt) {
+      const lastSavedMs = new Date(stored.blindsTracker.lastSavedAt).getTime();
+      if (lastSavedMs < this.serverBootAt) {
+        const adjusted = adjustTrackerForServerDowntime(stored.blindsTracker, this.serverBootAt);
+        if (
+          adjusted.levelStartedAt !== stored.blindsTracker.levelStartedAt ||
+          adjusted.lastSavedAt !== stored.blindsTracker.lastSavedAt
+        ) {
+          stored = { ...stored, blindsTracker: adjusted };
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(stored, config, players), row.id);
+        }
+      }
+    }
+    return stored;
+  }
   state(id: string): RoomState {
     const row = this.row(id);
     const config = this.config(row), players = this.players(id);
+    const game = this.getGame(row, config, players);
     return {
       id: row.id, code: row.code, config, revision: row.revision, closed: !!row.closed,
       players: players.map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
-      game: row.game === null ? null : publicGame(decodeGame(row.game, config, players)),
+      game: game === null ? null : publicGame(game, config),
     };
   }
 
@@ -125,7 +145,7 @@ export class RoomService {
         case 'select-seat': {
           if (row.game !== null) {
             const config = this.config(row), players = this.players(c.roomId);
-            const stored = decodeGame(row.game, config, players);
+            const stored = this.getGame(row, config, players)!;
             const admitted = stored.admittedPlayerIds ?? stored.hand.players.map(p => p.id);
             if (admitted.includes(c.playerId) || stored.hand.players.some(p => p.id === c.playerId)) {
               this.preparing(row);
@@ -152,7 +172,15 @@ export class RoomService {
           if (row.game !== null) throw new RoomError('GAME_ALREADY_STARTED', 'Esta sala já possui uma partida iniciada.');
           const state = this.state(c.roomId);
           const hand = initializeHand(state.players, state.config);
-          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players), c.roomId);
+          const initialTracker: BlindsTracker | undefined = state.config.blindsStructure && state.config.blindsStructure.type !== 'fixed'
+            ? {
+                levelIndex: 0,
+                handsInCurrentLevel: 1,
+                levelStartedAt: new Date().toISOString(),
+                lastSavedAt: new Date().toISOString(),
+              }
+            : undefined;
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players, 1, initialTracker), c.roomId);
           break;
         }
         case 'game-action':
@@ -160,9 +188,12 @@ export class RoomService {
           if (command.type === 'advance-street') this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
-          const stored = decodeGame(row.game, config, players);
+          const stored = this.getGame(row, config, players)!;
           if (stored.status !== 'hand-active') throw new RoomError('HAND_ALREADY_COMPLETED', 'Esta mão não aceita mais apostas ou avanços.');
           const next = transitionHand(stored.hand, c.playerId, command);
+          const currentTracker: BlindsTracker | undefined = stored.blindsTracker
+            ? { ...stored.blindsTracker, lastSavedAt: new Date().toISOString() }
+            : undefined;
           if (stored.version === 3) {
             const nextGame: StoredGame = {
               version: 3,
@@ -172,10 +203,11 @@ export class RoomService {
               tableBudget: stored.tableBudget,
               previousSettlement: stored.previousSettlement,
               admittedPlayerIds: stored.admittedPlayerIds,
+              blindsTracker: currentTracker,
             };
             this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
           } else {
-            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2), c.roomId);
+            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2, currentTracker), c.roomId);
           }
           break;
         }
@@ -183,12 +215,15 @@ export class RoomService {
           this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
-          const stored = decodeGame(row.game, config, players);
+          const stored = this.getGame(row, config, players)!;
           if (stored.status !== 'hand-active') throw new RoomError('ALREADY_SETTLED', 'Esta mão já foi liquidada.');
           const settlement = settleGameHand(stored.hand, command.decisions);
           const survivors = settlement.players.filter(p => p.chips > 0);
           const decisions = command.decisions.map(d => ({ potId: d.potId, winners: [...d.winners] }));
           const admittedPlayerIds = stored.admittedPlayerIds ?? stored.hand.players.map(p => p.id);
+          const currentTracker: BlindsTracker | undefined = stored.blindsTracker
+            ? { ...stored.blindsTracker, lastSavedAt: new Date().toISOString() }
+            : undefined;
           let settledGame: StoredGame;
           if (survivors.length <= 1) {
             settledGame = {
@@ -201,6 +236,7 @@ export class RoomService {
               handNumber: stored.handNumber,
               tableBudget: stored.tableBudget,
               admittedPlayerIds,
+              blindsTracker: currentTracker,
             };
           } else {
             settledGame = {
@@ -212,6 +248,7 @@ export class RoomService {
               handNumber: stored.handNumber,
               tableBudget: stored.tableBudget,
               admittedPlayerIds,
+              blindsTracker: currentTracker,
             };
           }
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(settledGame, config, players), c.roomId);
@@ -221,7 +258,7 @@ export class RoomService {
           this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
-          const stored = decodeGame(row.game, config, players);
+          const stored = this.getGame(row, config, players)!;
           if (stored.status === 'game-complete') throw new RoomError('GAME_OVER', 'A partida já foi concluída com um vencedor final.');
           if (stored.status === 'hand-active') throw new RoomError('INVALID_ACTION', 'A mão atual ainda não foi liquidada.');
 
@@ -239,10 +276,16 @@ export class RoomService {
             chips: config.startingChips,
           }));
 
+          const { tracker: nextTracker, blinds: nextBlinds } = advanceBlindsOnNextHand(
+            config.blindsStructure,
+            stored.blindsTracker,
+            { smallBlind: config.smallBlind, bigBlind: config.bigBlind },
+          );
+
           let nextHandState: HandFlowState;
           try {
             nextHandState = startNextHand(stored.settlement, {
-              blinds: config,
+              blinds: nextBlinds,
               newPlayers: newPlayersInput.length > 0 ? newPlayersInput : undefined,
             });
           } catch (error) {
@@ -266,6 +309,7 @@ export class RoomService {
             tableBudget: nextTableBudget,
             previousSettlement: stored.settlement,
             admittedPlayerIds: nextAdmittedIds,
+            blindsTracker: nextTracker,
           };
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextActiveGame, config, players), c.roomId);
           break;
@@ -274,7 +318,7 @@ export class RoomService {
           this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
-          const stored = decodeGame(row.game, config, players);
+          const stored = this.getGame(row, config, players)!;
           if (stored.status === 'hand-active') {
             throw new RoomError('GAME_IN_PROGRESS', 'Não é possível reiniciar a partida durante uma mão em andamento. Conclua ou liquide a mão antes de reiniciar.');
           }

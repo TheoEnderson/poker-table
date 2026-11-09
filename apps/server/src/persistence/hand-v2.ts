@@ -8,6 +8,7 @@ export function verifyHandV2(
   config: RoomConfig,
   participants: readonly { id: string; seat: number | null }[],
   expectedBudget?: number,
+  expectedBlinds?: { smallBlind: number; bigBlind: number },
 ) {
   const require = (condition: boolean) => { if (!condition) throw new Error('Invalid persisted hand'); };
   const sum = (values: readonly number[]) => values.reduce((total, n) => {
@@ -24,7 +25,12 @@ export function verifyHandV2(
   require(new Set(players.map(p => p.id)).size === players.length && new Set(players.map(p => p.seat)).size === players.length);
   require(players.every((p, i) => p.seat <= config.maxPlayers && seated.some(q => q.id === p.id && q.seat === p.seat) && (i === 0 || players[i - 1].seat < p.seat)));
   require(initial.players.length === players.length && round.players.length === players.length);
-  require(hand.smallBlind === config.smallBlind && hand.bigBlind === config.bigBlind);
+
+  const blinds = expectedBlinds ?? {
+    smallBlind: config.smallBlind,
+    bigBlind: config.bigBlind,
+  };
+  require(hand.smallBlind === blinds.smallBlind && hand.bigBlind === blinds.bigBlind);
 
   // Validate the immutable origin using engine rules, never reconstruct the evolved hand.
   // Individual initial stacks come from the origin snapshot; their aggregate must match the room budget.
@@ -33,10 +39,7 @@ export function verifyHandV2(
   require(Number.isSafeInteger(budget) && sum(originPlayers.map(p => p.chips)) === budget);
   const expectedInitial = createInitialHand({
     players: originPlayers,
-    blinds: {
-      smallBlind: config.smallBlind,
-      bigBlind: config.bigBlind,
-    },
+    blinds,
     // Registros legados: primeira mão com dealer determinístico.
     // Formato v3: permite o dealer resultante da rotação anterior.
     ...(expectedBudget !== undefined

@@ -4,6 +4,7 @@ import { TablePot } from './TablePot';
 import { CommunityCards } from './CommunityCards';
 import { SeatPod } from './SeatPod';
 import { StreetIndicator } from './StreetIndicator';
+import { BlindsIndicator } from './BlindsIndicator';
 import {
   formatActionNarrative,
   getLastAction,
@@ -48,12 +49,7 @@ export function VirtualTable({
       <header className="table-top-status-bar pot-summary" aria-label="Resumo e status da rodada">
         <div className="table-status-meta">
           <StreetIndicator game={game} />
-          <div className="blinds-badge" title="Small Blind / Big Blind">
-            <small>BLINDS</small>
-            <span className="tabular-nums">
-              {game.hand.smallBlind} / {game.hand.bigBlind}
-            </span>
-          </div>
+          <BlindsIndicator game={game} />
         </div>
 
         {/* Banner do Jogador da Vez */}

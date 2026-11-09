@@ -1,6 +1,7 @@
 import type { GameState, RoomState } from '@poker-table/protocol';
 import { ChipAmount } from '../common/ChipAmount';
 import { StreetIndicator } from './StreetIndicator';
+import { BlindsIndicator } from './BlindsIndicator';
 import {
   formatActionNarrative,
   getLastAction,
@@ -46,12 +47,7 @@ export function PotSummary({
     <section className="pot-summary" aria-label="Resumo da mesa">
       <div className="pot-header">
         <StreetIndicator game={game} />
-        <div className="blinds-badge">
-          <small>BLINDS</small>
-          <span className="tabular-nums">
-            {game.hand.smallBlind} / {game.hand.bigBlind}
-          </span>
-        </div>
+        <BlindsIndicator game={game} />
       </div>
 
       <div className="pot-display">
