@@ -35,7 +35,7 @@ object NodeRunner {
         val versionMarker = File(targetDir, ".version_installed")
         val currentVersion = runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrDefault("0.2.0")
+        }.getOrDefault("0.3.0")
 
         if (versionMarker.exists() && versionMarker.readText().trim() == currentVersion) {
             Log.i(TAG, "Assets do projeto já extraídos e atualizados (versão $currentVersion)")

@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 echo ""
-echo "=== Poker Table — Verificação de Ambiente e Build do APK (v0.2.0) ==="
+echo "=== Poker Table — Verificação de Ambiente e Build do APK (v0.3.0) ==="
 echo ""
 
 # 1. Configurar e validar Java 17
