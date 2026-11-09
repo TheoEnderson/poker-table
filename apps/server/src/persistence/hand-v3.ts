@@ -29,10 +29,11 @@ export function verifyGameV3(
   }
 
   if (record.status === 'hand-active') {
+    const handBlinds = { smallBlind: record.hand.smallBlind, bigBlind: record.hand.bigBlind };
     if (record.handNumber === 1) {
       const handInitialCount = record.admittedPlayerIds?.length ?? record.hand.players.length;
       require(record.tableBudget === config.startingChips * handInitialCount);
-      verifyHandV2(record.hand, config, participants, record.tableBudget);
+      verifyHandV2(record.hand, config, participants, record.tableBudget, handBlinds);
     } else {
       require(record.previousSettlement !== undefined);
       const prev = record.previousSettlement!;
@@ -46,11 +47,11 @@ export function verifyGameV3(
       const newPlayersBudget = newPlayers.length * config.startingChips;
       require(sum(prev.players.map(p => p.chips)) + newPlayersBudget === record.tableBudget);
       const expectedInitial = JSON.parse(JSON.stringify(startNextHand(prev, {
-        blinds: config,
+        blinds: handBlinds,
         newPlayers: newPlayers.length > 0 ? newPlayers : undefined,
       })));
       require(isDeepStrictEqual(record.hand.handState, expectedInitial.handState));
-      verifyHandV2(record.hand, config, participants, record.tableBudget);
+      verifyHandV2(record.hand, config, participants, record.tableBudget, handBlinds);
     }
 
     return;
@@ -58,7 +59,10 @@ export function verifyGameV3(
 
   // hand-settled or game-complete:
   require(record.hand.status === 'showdown' || record.hand.status === 'hand_ended_by_fold');
-  verifyHandV2(record.hand, config, participants, record.tableBudget);
+  verifyHandV2(record.hand, config, participants, record.tableBudget, {
+    smallBlind: record.hand.smallBlind,
+    bigBlind: record.hand.bigBlind,
+  });
 
   // Validate settlement calculation using pure engine
   const calculated = JSON.parse(JSON.stringify(settleHandFlow(record.hand, record.decisions)));

@@ -3,14 +3,14 @@ import { persistedHandSchema } from './hand-schema.js';
 import { verifyHandV2 } from './hand-v2.js';
 import { verifyGameV3 } from './hand-v3.js';
 import { startHandFlow, type HandFlowState, type SettlementResult, type PotWinnerDecision } from '@poker-table/engine';
-import type { RoomConfig } from '@poker-table/protocol';
+import type { RoomConfig, BlindsTracker } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 
 export type StoredGame =
-  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[] }
-  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[] }
-  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[] }
-  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[] };
+  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
+  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
+  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
+  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker };
 
 
 function freeze<T>(value: T): T {
@@ -92,8 +92,8 @@ export function encodeGame(game: StoredGame, config: RoomConfig, participants: r
   return encoded;
 }
 
-export function encodeHand(hand: HandFlowState, config: RoomConfig, participants: readonly { id: string; seat: number | null }[], version: 1 | 2 = 1): string {
-  const encoded = JSON.stringify({ version, status: 'hand-active', hand });
+export function encodeHand(hand: HandFlowState, config: RoomConfig, participants: readonly { id: string; seat: number | null }[], version: 1 | 2 = 1, blindsTracker?: BlindsTracker): string {
+  const encoded = JSON.stringify({ version, status: 'hand-active', hand, blindsTracker });
   decodeHand(encoded, config, participants); // Validate before any write is committed.
   return encoded;
 }
@@ -111,6 +111,7 @@ export function decodeGame(raw: string, config: RoomConfig, participants: readon
         handNumber: 1,
         tableBudget: config.startingChips * admittedPlayerIds.length,
         admittedPlayerIds,
+        blindsTracker: parsed.blindsTracker,
       });
     }
     if (parsed.version === 2) {
@@ -123,6 +124,7 @@ export function decodeGame(raw: string, config: RoomConfig, participants: readon
         handNumber: 1,
         tableBudget: config.startingChips * admittedPlayerIds.length,
         admittedPlayerIds,
+        blindsTracker: parsed.blindsTracker,
       });
     }
     verifyGameV3(parsed, config, participants);

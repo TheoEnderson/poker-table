@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { blindsTrackerSchema } from '@poker-table/protocol';
 
 const chips = z.number().int().nonnegative();
 const seat = z.number().int().min(1).max(10);
@@ -48,6 +49,7 @@ export const persistedV1 = z.strictObject({
     handState: initial, ...actor, playersToAct: ids, survivorId: z.null(),
     actions: z.array(handActionPersistenceSchema).optional(),
   }),
+  blindsTracker: blindsTrackerSchema.optional(),
 });
 
 
@@ -62,6 +64,7 @@ export const persistedV2 = z.strictObject({
     survivorId: z.uuid().nullable(),
     actions: z.array(handActionPersistenceSchema).optional(),
   }),
+  blindsTracker: blindsTrackerSchema.optional(),
 });
 
 const potSchema = z.strictObject({
@@ -132,6 +135,7 @@ export const persistedV3Active = z.strictObject({
   tableBudget: chips.positive(),
   previousSettlement: persistedSettlementSchema.optional(),
   admittedPlayerIds: ids.optional(),
+  blindsTracker: blindsTrackerSchema.optional(),
 });
 
 export const persistedV3Settled = z.strictObject({
@@ -143,6 +147,7 @@ export const persistedV3Settled = z.strictObject({
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
   admittedPlayerIds: ids.optional(),
+  blindsTracker: blindsTrackerSchema.optional(),
 });
 
 export const persistedV3Complete = z.strictObject({
@@ -155,6 +160,7 @@ export const persistedV3Complete = z.strictObject({
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
   admittedPlayerIds: ids.optional(),
+  blindsTracker: blindsTrackerSchema.optional(),
 });
 
 export const persistedHandSchema = z.union([

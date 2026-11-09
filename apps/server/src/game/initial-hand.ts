@@ -1,5 +1,5 @@
 import { buildPots, canAdvanceStreet, EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
-import { configSchema, gameStateSchema, handSnapshotSchema, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
+import { configSchema, gameStateSchema, handSnapshotSchema, computeBlindsState, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 import { publicSettlement } from './settlement.js';
 import type { StoredGame } from '../persistence/hand.js';
@@ -52,11 +52,19 @@ export function publicHand(hand: HandFlowState) {
   });
 }
 
-export function publicGame(game: StoredGame | HandFlowState): GameState {
+export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig): GameState {
+  const blindsTracker = 'blindsTracker' in game ? game.blindsTracker : undefined;
+  const currentHand = 'street' in game ? game : game.hand;
+  const blindsState = config ? computeBlindsState(config.blindsStructure, blindsTracker, {
+    smallBlind: currentHand.smallBlind,
+    bigBlind: currentHand.bigBlind,
+  }) : undefined;
+
   if ('street' in game) {
     return gameStateSchema.parse({
       status: 'hand-active',
       hand: publicHand(game),
+      blindsState,
     });
   }
   switch (game.status) {
@@ -65,6 +73,7 @@ export function publicGame(game: StoredGame | HandFlowState): GameState {
         status: 'hand-active',
         hand: publicHand(game.hand),
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
+        blindsState,
       });
     case 'hand-settled':
       return gameStateSchema.parse({
@@ -72,6 +81,7 @@ export function publicGame(game: StoredGame | HandFlowState): GameState {
         hand: publicHand(game.hand),
         settlement: publicSettlement(game.settlement),
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
+        blindsState,
       });
     case 'game-complete':
       return gameStateSchema.parse({
@@ -80,6 +90,7 @@ export function publicGame(game: StoredGame | HandFlowState): GameState {
         settlement: publicSettlement(game.settlement),
         winnerId: game.winnerId,
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
+        blindsState,
       });
   }
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { blindsProgressionStateSchema } from './blinds.js';
 
 const chips = z.number().int().nonnegative();
 const seat = z.number().int().min(1).max(10);
@@ -116,12 +117,14 @@ export const gameStateSchema = z.discriminatedUnion('status', [
     status: z.literal('hand-active'),
     hand: handSnapshotSchema,
     admittedPlayerIds: z.array(z.uuid()).optional(),
+    blindsState: blindsProgressionStateSchema.optional(),
   }),
   z.strictObject({
     status: z.literal('hand-settled'),
     hand: handSnapshotSchema,
     settlement: settlementSnapshotSchema,
     admittedPlayerIds: z.array(z.uuid()).optional(),
+    blindsState: blindsProgressionStateSchema.optional(),
   }),
   z.strictObject({
     status: z.literal('game-complete'),
@@ -129,6 +132,7 @@ export const gameStateSchema = z.discriminatedUnion('status', [
     settlement: settlementSnapshotSchema,
     winnerId: z.uuid(),
     admittedPlayerIds: z.array(z.uuid()).optional(),
+    blindsState: blindsProgressionStateSchema.optional(),
   }),
 ]);
 export type GameState = z.infer<typeof gameStateSchema>;

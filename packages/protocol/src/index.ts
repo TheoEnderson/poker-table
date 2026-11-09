@@ -19,6 +19,36 @@ export {
   type HandAction,
   type HandActionType,
 } from './game.js';
+import {
+  blindLevelSchema,
+  blindsStructureSchema,
+  blindsProgressionStateSchema,
+  blindsTrackerSchema,
+  getDefaultBlindLevels,
+  getBlindLevelDuration,
+  computeBlindsState,
+  advanceBlindsOnNextHand,
+  adjustTrackerForServerDowntime,
+  type BlindLevel,
+  type BlindsStructure,
+  type BlindsProgressionState,
+  type BlindsTracker,
+} from './blinds.js';
+export {
+  blindLevelSchema,
+  blindsStructureSchema,
+  blindsProgressionStateSchema,
+  blindsTrackerSchema,
+  getDefaultBlindLevels,
+  getBlindLevelDuration,
+  computeBlindsState,
+  advanceBlindsOnNextHand,
+  adjustTrackerForServerDowntime,
+  type BlindLevel,
+  type BlindsStructure,
+  type BlindsProgressionState,
+  type BlindsTracker,
+};
 
 export const PROTOCOL_VERSION = 1 as const;
 // eslint-disable-next-line no-control-regex -- Rejeita caracteres de controle nos nomes dos jogadores.
@@ -31,8 +61,18 @@ export const configSchema = z.strictObject({
   startingChips: chips,
   smallBlind: chips,
   bigBlind: chips,
+  blindsStructure: blindsStructureSchema.optional(),
 }).refine(c => c.bigBlind >= c.smallBlind, { message: 'O big blind deve ser igual ou maior que o small blind.', path: ['bigBlind'] })
-  .refine(c => c.startingChips >= c.bigBlind, { message: 'As fichas iniciais devem cobrir o big blind.', path: ['startingChips'] });
+  .refine(c => c.startingChips >= c.bigBlind, { message: 'As fichas iniciais devem cobrir o big blind.', path: ['startingChips'] })
+  .refine(c => {
+    if (c.blindsStructure && c.blindsStructure.type !== 'fixed') {
+      const first = c.blindsStructure.levels[0];
+      if (first && (first.smallBlind !== c.smallBlind || first.bigBlind !== c.bigBlind)) {
+        return false;
+      }
+    }
+    return true;
+  }, { message: 'O primeiro nível da estrutura deve corresponder ao Small e Big Blind iniciais.', path: ['blindsStructure'] });
 export const createRoomSchema = z.strictObject({ config: configSchema, hostName: displayName });
 export const joinRoomSchema = z.strictObject({ name: displayName, seat: z.number().int().min(1).max(10).nullable().optional() });
 export const credentialsSchema = z.strictObject({

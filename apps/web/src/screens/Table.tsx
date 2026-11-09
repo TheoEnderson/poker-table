@@ -153,6 +153,12 @@ export function Table({ code }: { code: string }) {
                     <small>BLINDS</small>
                     <strong>
                       {room.config.smallBlind} / {room.config.bigBlind}
+                      {room.config.blindsStructure?.type === 'hands' && (
+                        <span className="blinds-structure-pill"> · {room.config.blindsStructure.handsPerLevel} mãos/nível</span>
+                      )}
+                      {room.config.blindsStructure?.type === 'time' && (
+                        <span className="blinds-structure-pill"> · {room.config.blindsStructure.minutesPerLevel} min/nível</span>
+                      )}
                     </strong>
                   </div>
                 </div>
@@ -247,6 +253,12 @@ export function Table({ code }: { code: string }) {
                   <small>BLINDS</small>
                   <strong>
                     {room.config.smallBlind} / {room.config.bigBlind}
+                    {room.config.blindsStructure?.type === 'hands' && (
+                      <span className="blinds-structure-pill"> · {room.config.blindsStructure.handsPerLevel} mãos/nível</span>
+                    )}
+                    {room.config.blindsStructure?.type === 'time' && (
+                      <span className="blinds-structure-pill"> · {room.config.blindsStructure.minutesPerLevel} min/nível</span>
+                    )}
                   </strong>
                 </div>
               </div>
