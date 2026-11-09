@@ -69,12 +69,19 @@ export function createApplication(options: AppOptions) {
     res.status(status).json(reply);
   };
   app.use(errors);
+  let closed = false;
   return {
     app, http, rooms, store,
     async listen(port = 3000, host = '0.0.0.0') {
       await new Promise<void>((yes, no) => { http.once('error', no); http.listen(port, host, () => { http.off('error', no); yes(); }); });
       return (http.address() as AddressInfo).port;
     },
-    async close() { await new Promise<void>(resolve => io.close(() => resolve())); store.close(); },
+    async close() {
+      if (closed) return;
+      closed = true;
+      rooms.close();
+      await new Promise<void>(resolve => io.close(() => resolve()));
+      store.close();
+    },
   };
 }

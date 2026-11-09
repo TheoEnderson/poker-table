@@ -87,7 +87,10 @@ function verify(hand: HandFlowState, config: RoomConfig, participants: readonly 
 }
 
 export function encodeGame(game: StoredGame, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): string {
-  const encoded = JSON.stringify(game);
+  const payload = game.version === 1 || game.version === 2
+    ? { version: game.version, status: 'hand-active' as const, hand: game.hand, blindsTracker: game.blindsTracker }
+    : game;
+  const encoded = JSON.stringify(payload);
   decodeGame(encoded, config, participants); // Validate before any write is committed.
   return encoded;
 }

@@ -18,7 +18,56 @@ const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export class RoomService {
   private readonly connections = new Map<string, Set<string>>();
   readonly serverBootAt = Date.now();
-  constructor(readonly store: Store) {}
+  private heartbeatTimer?: NodeJS.Timeout;
+
+  constructor(readonly store: Store) {
+    this.heartbeatTimer = setInterval(() => this.flushHeartbeat(), 20_000);
+    if (typeof this.heartbeatTimer?.unref === 'function') {
+      this.heartbeatTimer.unref();
+    }
+  }
+
+  flushHeartbeat(nowMs = Date.now()): void {
+    try {
+      const rows = this.store.db
+        .prepare('SELECT * FROM rooms WHERE closed=0 AND game IS NOT NULL')
+        .all() as RoomRow[];
+      for (const row of rows) {
+        const config = this.config(row);
+        if (config.blindsStructure?.type !== 'time') continue;
+        const players = this.players(row.id);
+        const stored = decodeGame(row.game!, config, players);
+        if (!stored || stored.status === 'game-complete' || !stored.blindsTracker) continue;
+
+        if (stored.blindsTracker.lastSavedAt) {
+          const currentSavedMs = new Date(stored.blindsTracker.lastSavedAt).getTime();
+          if (nowMs < currentSavedMs) continue;
+        }
+
+        const updatedTracker: BlindsTracker = {
+          ...stored.blindsTracker,
+          lastSavedAt: new Date(nowMs).toISOString(),
+        };
+        const updatedGame: StoredGame = {
+          ...stored,
+          blindsTracker: updatedTracker,
+        };
+        this.store.db
+          .prepare('UPDATE rooms SET game=? WHERE id=?')
+          .run(encodeGame(updatedGame, config, players), row.id);
+      }
+    } catch {
+      // Ignora falhas em caso de encerramento do banco de dados
+    }
+  }
+
+  close(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
+    this.flushHeartbeat();
+  }
   private row(id: string): RoomRow {
     const row = this.store.db.prepare('SELECT * FROM rooms WHERE id=?').get(id) as RoomRow | undefined;
     if (!row) throw new RoomError('NOT_FOUND', 'Mesa não encontrada. Confira o código.');
