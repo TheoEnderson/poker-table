@@ -50,7 +50,7 @@ trap 'rm -rf "$TEMP_PROD_DIR"' EXIT
 cat << 'EOF' > "$TEMP_PROD_DIR/package.json"
 {
   "name": "poker-table-runtime",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -84,7 +84,7 @@ find "$ASSETS_TARGET/node_modules" -type f \( -name ".npmignore" -o -name ".esli
 cat << 'EOF' > "$ASSETS_TARGET/package.json"
 {
   "name": "poker-table-android-bundle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "server/main.js"
 }
