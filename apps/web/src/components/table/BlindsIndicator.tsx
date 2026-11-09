@@ -1,29 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '@poker-table/protocol';
+import {
+  initClockSync,
+  computeSynchronizedRemaining,
+  formatCountdownTime,
+} from '../../utils/clock-sync';
 
 export function BlindsIndicator({ game }: { game: GameState }) {
   const { hand, blindsState } = game;
   const isTimeMode = blindsState?.type === 'time';
-  const expiresAtMs = blindsState?.levelExpiresAt ? new Date(blindsState.levelExpiresAt).getTime() : 0;
+  const initialRemaining = blindsState?.secondsRemainingInLevel ?? 0;
 
-  // Contador local segundo a segundo sincronizado com o prazo (levelExpiresAt) do servidor
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(() => {
-    if (!isTimeMode || !expiresAtMs) return 0;
-    return Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
-  });
+  const getPerfNow = () =>
+    typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+  // Referência de sincronização temporal monotônica imune a desvios no relógio do cliente
+  const syncRef = useRef(initClockSync(initialRemaining, getPerfNow()));
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(initialRemaining);
 
   useEffect(() => {
-    if (!isTimeMode || !expiresAtMs) return;
+    if (!isTimeMode || !blindsState) return;
+
+    const perf = getPerfNow();
+    const serverRemaining = blindsState.secondsRemainingInLevel ?? 0;
+    syncRef.current = initClockSync(serverRemaining, perf);
+    setSecondsRemaining(computeSynchronizedRemaining(syncRef.current, perf));
 
     const update = () => {
-      const rem = Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
-      setSecondsRemaining(rem);
+      setSecondsRemaining(computeSynchronizedRemaining(syncRef.current, getPerfNow()));
     };
 
-    update();
     const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [isTimeMode, expiresAtMs]);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        update();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [
+    isTimeMode,
+    blindsState?.currentLevelIndex,
+    blindsState?.secondsRemainingInLevel,
+    blindsState?.levelExpiresAt,
+    blindsState?.isNextLevelPending,
+  ]);
 
   // Modo Fixo (padrão)
   if (!blindsState || blindsState.type === 'fixed') {
@@ -37,14 +63,9 @@ export function BlindsIndicator({ game }: { game: GameState }) {
     );
   }
 
-  // Formatação de MM:SS para o modo por tempo
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const isPending = blindsState.isNextLevelPending || (isTimeMode && secondsRemaining === 0 && Boolean(blindsState.nextLevel));
+  const isPending =
+    blindsState.isNextLevelPending ||
+    (isTimeMode && secondsRemaining === 0 && Boolean(blindsState.nextLevel));
 
   return (
     <div
@@ -70,7 +91,7 @@ export function BlindsIndicator({ game }: { game: GameState }) {
             </span>
           ) : (
             <span className="blinds-remaining-tag tabular-nums">
-              ⏱ {formatTime(secondsRemaining)}
+              ⏱ {formatCountdownTime(secondsRemaining)}
             </span>
           )}
         </div>
