@@ -1887,6 +1887,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
+    min-width: 0;
     min-height: 42px;
     border-radius: 8px;
     background: #141f1a;
@@ -1925,13 +1926,15 @@
   }
 
   /* Estados ativos dos botões de ação antecipada */
-  .pre-action-check.active {
+  .pre-action-check.active,
+  .pre-action-call.active {
     background: #064e3b;
     border-color: var(--emerald);
     color: #ecfdf5;
     box-shadow: 0 0 10px var(--emerald-glow);
   }
-  .pre-action-check.active .pre-action-checkbox {
+  .pre-action-check.active .pre-action-checkbox,
+  .pre-action-call.active .pre-action-checkbox {
     background: var(--emerald);
     border-color: var(--emerald);
     color: #042617;

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { AllowedActions } from '@poker-table/protocol';
 import {
+  computePreActionCallAmount,
   resolvePreAction,
   shouldCancelPreActionOnBetChange,
   getPreActionLabel,
@@ -272,12 +273,129 @@ describe('Pre-Actions logic utilities', () => {
   describe('labels and descriptions', () => {
     it('returns clear and accurate labels', () => {
       expect(getPreActionLabel('check')).toBe('Check');
+      expect(getPreActionLabel('call')).toBe('Call');
+      expect(getPreActionLabel('call', 40)).toBe('Call 40');
       expect(getPreActionLabel('check-fold')).toBe('Check / Fold');
       expect(getPreActionLabel('fold')).toBe('Fold');
 
       expect(getPreActionDescription('check')).toBe('Passar (Check)');
+      expect(getPreActionDescription('call')).toBe('Pagar (Call)');
+      expect(getPreActionDescription('call', { amount: 40 })).toBe('Pagar 40');
+      expect(getPreActionDescription('call', { amount: 40, isAllIn: true })).toBe('Pagar 40 (All-in)');
       expect(getPreActionDescription('check-fold')).toBe('Passar se possível; caso contrário, desistir.');
       expect(getPreActionDescription('fold')).toBe('Desistir (Fold)');
+    });
+  });
+
+  describe('Call <valor> pre-action helpers', () => {
+    it('computes exact min(toCall, playerStack) for dynamic Call label', () => {
+      expect(computePreActionCallAmount(0, 500)).toBe(0);
+      expect(computePreActionCallAmount(40, 0)).toBe(0);
+      expect(computePreActionCallAmount(40, 500)).toBe(40);
+      expect(computePreActionCallAmount(150, 60)).toBe(60);
+    });
+
+    it('resolves Call when amount matches current callAmount and triggers all-in if stack <= toCall', () => {
+      const regularCall = resolvePreAction({
+        preAction: {
+          type: 'call',
+          street: 'preflop',
+          handDealerSeat: 1,
+          createdCurrentBet: 60,
+          amount: 40,
+        },
+        allowed: dummyAllowed({
+          canCheck: false,
+          canCall: true,
+          callAmount: 40,
+          currentBet: 60,
+          allInType: 'raise',
+        }),
+        currentStreet: 'preflop',
+        currentDealerSeat: 1,
+        playerStack: 500,
+      });
+      expect(regularCall).toEqual({ actionToSend: 'call', shouldCancel: true });
+
+      const allInCall = resolvePreAction({
+        preAction: {
+          type: 'call',
+          street: 'preflop',
+          handDealerSeat: 1,
+          createdCurrentBet: 100,
+          amount: 60,
+        },
+        allowed: dummyAllowed({
+          canCheck: false,
+          canCall: true,
+          callAmount: 60,
+          canRaise: false,
+          minRaiseAmount: null,
+          maxRaiseAmount: null,
+          minRaiseIncrement: null,
+          currentBet: 100,
+          canAllIn: true,
+          allInAmount: 60,
+          allInType: 'call',
+        }),
+        currentStreet: 'preflop',
+        currentDealerSeat: 1,
+        playerStack: 60,
+      });
+      expect(allInCall).toEqual({ actionToSend: 'all-in', shouldCancel: true });
+    });
+
+    it('cancels Call when a re-raise increases effective callAmount beyond stored amount', () => {
+      const res = resolvePreAction({
+        preAction: {
+          type: 'call',
+          street: 'preflop',
+          handDealerSeat: 1,
+          createdCurrentBet: 60,
+          amount: 40,
+        },
+        allowed: dummyAllowed({
+          canCheck: false,
+          canCall: true,
+          callAmount: 120,
+          currentBet: 140,
+        }),
+        currentStreet: 'preflop',
+        currentDealerSeat: 1,
+      });
+
+      expect(res).toEqual({ actionToSend: null, shouldCancel: true, reason: 'bet_raised' });
+
+      expect(
+        shouldCancelPreActionOnBetChange({
+          preAction: {
+            type: 'call',
+            street: 'preflop',
+            handDealerSeat: 1,
+            createdCurrentBet: 60,
+            amount: 40,
+          },
+          currentStreetBet: 140,
+          playerRoundCommitted: 20,
+          playerStack: 500,
+        }),
+      ).toBe(true);
+
+      // Mantém para short-stack caso min(toCall, stack) permaneça igual
+      expect(
+        shouldCancelPreActionOnBetChange({
+          preAction: {
+            type: 'call',
+            street: 'preflop',
+            handDealerSeat: 1,
+            createdCurrentBet: 100,
+            amount: 60,
+          },
+          currentStreetBet: 200,
+          playerRoundCommitted: 0,
+          playerStack: 60,
+        }),
+      ).toBe(false);
     });
   });
 });

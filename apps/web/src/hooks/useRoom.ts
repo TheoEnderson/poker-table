@@ -47,9 +47,20 @@ export function useRoom(credentials: Credentials | null) {
     });
     socket.on('session:ended', reason => { ended = true; setError(reason); setStatus('ended'); socket.disconnect(); });
     const resume = () => { if (document.visibilityState === 'visible') { if (!socket.connected && socket.active) socket.connect(); sync(); } };
+    const onPageHide = () => { socket.disconnect(); };
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted && !ended && !socket.connected) socket.connect(); };
     document.addEventListener('visibilitychange', resume);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     socket.connect();
-    return () => { document.removeEventListener('visibilitychange', resume); socket.removeAllListeners(); socket.disconnect(); socketRef.current = null; };
+    return () => {
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [credentials, accept, sync]);
   const command = async (input: CommandInput): Promise<boolean> => {
     const socket = socketRef.current, current = roomRef.current;

@@ -1,5 +1,5 @@
 import { advanceStreet, applyHandAction, canAdvanceStreet, EngineError, type EngineErrorCode, type HandFlowState } from '@poker-table/engine';
-import type { Command, ErrorCode } from '@poker-table/protocol';
+import type { CommandInput, ErrorCode } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
 
 const errors: Partial<Record<EngineErrorCode, [ErrorCode, string]>> = {
@@ -19,7 +19,7 @@ const errors: Partial<Record<EngineErrorCode, [ErrorCode, string]>> = {
   PLAYER_ALL_IN: ['INVALID_ACTION', 'Você já está all-in.'],
 };
 
-export function transitionHand(hand: HandFlowState, playerId: string, command: Extract<Command, { type: 'game-action' | 'advance-street' }>): HandFlowState {
+export function transitionHand(hand: HandFlowState, playerId: string, command: Extract<CommandInput, { type: 'game-action' | 'advance-street' }>): HandFlowState {
   try {
     if (command.type === 'advance-street') {
       if (!canAdvanceStreet(hand)) throw new RoomError(
