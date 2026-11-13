@@ -1,12 +1,45 @@
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
-import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, advanceBlindsOnNextHand, adjustTrackerForServerDowntime, type Admission, type Credentials, type RoomState, type BlindsTracker } from '@poker-table/protocol';
+import { commandSchema, configSchema, createRoomSchema, credentialsSchema, joinRoomSchema, roomCode, advanceBlindsOnNextHand, adjustTrackerForServerDowntime, type Admission, type Credentials, type RoomState, type BlindsTracker, type PreAction } from '@poker-table/protocol';
 import { EngineError, startNextHand, type HandFlowState } from '@poker-table/engine';
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
 import { initializeHand, publicGame } from '../game/initial-hand.js';
 import { decodeGame, encodeGame, encodeHand, type StoredGame } from '../persistence/hand.js';
-import { transitionHand } from '../game/transitions.js';
+import { applyActionAndPreActions, normalizePreActions, removePlayerPreAction, validateSetPreAction } from '../game/pre-actions.js';
 import { settleGameHand } from '../game/settlement.js';
+
+function withUpdatedActiveGame(
+  stored: Extract<StoredGame, { status: 'hand-active' }>,
+  hand: HandFlowState,
+  preActions: Record<string, PreAction> | undefined,
+  blindsTracker: BlindsTracker | undefined,
+  upgradeV1ToV2: boolean,
+): StoredGame {
+  const cleanPreActions = normalizePreActions(preActions);
+  if (stored.version === 3) {
+    return {
+      version: 3,
+      status: 'hand-active',
+      hand,
+      handNumber: stored.handNumber,
+      tableBudget: stored.tableBudget,
+      previousSettlement: stored.previousSettlement,
+      admittedPlayerIds: stored.admittedPlayerIds,
+      blindsTracker,
+      ...(cleanPreActions !== undefined ? { preActions: cleanPreActions } : {}),
+    };
+  }
+  return {
+    version: upgradeV1ToV2 ? 2 : stored.version,
+    status: 'hand-active',
+    hand,
+    handNumber: 1,
+    tableBudget: stored.tableBudget,
+    admittedPlayerIds: stored.admittedPlayerIds,
+    blindsTracker,
+    ...(cleanPreActions !== undefined ? { preActions: cleanPreActions } : {}),
+  };
+}
 
 type RoomRow = { id: string; code: string; config: string; host_id: string; admin_hash: string; revision: number; closed: number; game: string | null };
 type PlayerRow = { id: string; room_id: string; name: string; seat: number | null; session_hash: string };
@@ -19,6 +52,7 @@ export class RoomService {
   private readonly connections = new Map<string, Set<string>>();
   readonly serverBootAt = Date.now();
   private heartbeatTimer?: NodeJS.Timeout;
+  private closing = false;
 
   constructor(readonly store: Store) {
     this.heartbeatTimer = setInterval(() => this.flushHeartbeat(), 20_000);
@@ -62,6 +96,7 @@ export class RoomService {
   }
 
   close(): void {
+    this.closing = true;
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
@@ -167,7 +202,27 @@ export class RoomService {
   disconnect(c: Credentials, connectionId: string) {
     const connections = this.connections.get(c.playerId);
     if (!connections?.has(connectionId)) return;
-    if (connections.size === 1) this.store.transaction(() => this.bump(c.roomId));
+    if (connections.size === 1) {
+      this.store.transaction(() => {
+        this.bump(c.roomId);
+        if (!this.closing) {
+          try {
+            const row = this.store.db.prepare('SELECT * FROM rooms WHERE id=?').get(c.roomId) as RoomRow | undefined;
+            if (row && !row.closed && row.game !== null) {
+              const config = this.config(row), players = this.players(c.roomId);
+              const stored = this.getGame(row, config, players);
+              if (stored?.status === 'hand-active' && stored.preActions?.[c.playerId] !== undefined) {
+                const nextPreActions = removePlayerPreAction(stored.preActions, c.playerId);
+                const nextGame = withUpdatedActiveGame(stored, stored.hand, nextPreActions, stored.blindsTracker, false);
+                this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
+              }
+            }
+          } catch {
+            // Nunca falha desconexão se o estado persistido estiver corrompido.
+          }
+        }
+      });
+    }
     connections.delete(connectionId);
     if (!connections.size) this.connections.delete(c.playerId);
   }
@@ -232,6 +287,29 @@ export class RoomService {
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players, 1, initialTracker), c.roomId);
           break;
         }
+        case 'set-pre-action': {
+          if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
+          const config = this.config(row), players = this.players(c.roomId);
+          const stored = this.getGame(row, config, players)!;
+          if (stored.status !== 'hand-active') throw new RoomError('HAND_ALREADY_COMPLETED', 'Esta mão não aceita mais pré-ações.');
+          validateSetPreAction(stored.hand, c.playerId, command.preAction);
+          const nextPreActions = { ...(stored.preActions ?? {}), [c.playerId]: command.preAction };
+          const nextGame = withUpdatedActiveGame(stored, stored.hand, nextPreActions, stored.blindsTracker, false);
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
+          break;
+        }
+        case 'clear-pre-action': {
+          if (row.game !== null) {
+            const config = this.config(row), players = this.players(c.roomId);
+            const stored = this.getGame(row, config, players)!;
+            if (stored.status === 'hand-active' && stored.preActions?.[c.playerId] !== undefined) {
+              const nextPreActions = removePlayerPreAction(stored.preActions, c.playerId);
+              const nextGame = withUpdatedActiveGame(stored, stored.hand, nextPreActions, stored.blindsTracker, false);
+              this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
+            }
+          }
+          break;
+        }
         case 'game-action':
         case 'advance-street': {
           if (command.type === 'advance-street') this.admin(c, row);
@@ -239,25 +317,17 @@ export class RoomService {
           const config = this.config(row), players = this.players(c.roomId);
           const stored = this.getGame(row, config, players)!;
           if (stored.status !== 'hand-active') throw new RoomError('HAND_ALREADY_COMPLETED', 'Esta mão não aceita mais apostas ou avanços.');
-          const next = transitionHand(stored.hand, c.playerId, command);
+          const { hand: next, preActions: nextPreActions } = applyActionAndPreActions(
+            stored.hand,
+            c.playerId,
+            command,
+            stored.preActions,
+          );
           const currentTracker: BlindsTracker | undefined = stored.blindsTracker
             ? { ...stored.blindsTracker, lastSavedAt: new Date().toISOString() }
             : undefined;
-          if (stored.version === 3) {
-            const nextGame: StoredGame = {
-              version: 3,
-              status: 'hand-active',
-              hand: next,
-              handNumber: stored.handNumber,
-              tableBudget: stored.tableBudget,
-              previousSettlement: stored.previousSettlement,
-              admittedPlayerIds: stored.admittedPlayerIds,
-              blindsTracker: currentTracker,
-            };
-            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
-          } else {
-            this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(next, config, players, 2, currentTracker), c.roomId);
-          }
+          const nextGame = withUpdatedActiveGame(stored, next, nextPreActions, currentTracker, true);
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
           break;
         }
         case 'settle-hand': {

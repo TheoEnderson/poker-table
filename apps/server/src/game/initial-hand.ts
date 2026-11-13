@@ -68,13 +68,18 @@ export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig
     });
   }
   switch (game.status) {
-    case 'hand-active':
+    case 'hand-active': {
+      const preActions = game.preActions && Object.keys(game.preActions).length > 0
+        ? game.preActions
+        : undefined;
       return gameStateSchema.parse({
         status: 'hand-active',
         hand: publicHand(game.hand),
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
         blindsState,
+        ...(preActions !== undefined ? { preActions } : {}),
       });
+    }
     case 'hand-settled':
       return gameStateSchema.parse({
         status: 'hand-settled',

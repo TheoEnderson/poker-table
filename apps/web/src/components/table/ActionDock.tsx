@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import type { CommandInput, GameState, RoomState } from '@poker-table/protocol';
+import { useEffect, useState } from 'react';
+import type { CommandInput, GameState, PreAction, RoomState } from '@poker-table/protocol';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RaiseControl } from './RaiseControl';
 import {
-  type PreActionType,
-  type PreActionState,
-  resolvePreAction,
-  shouldCancelPreActionOnBetChange,
+  computePreActionCallAmount,
   getPreActionDescription,
+  getPreActionLabel,
 } from '../../utils/pre-actions';
 import { getCurrentStreetBet } from '../../utils/actions';
 
@@ -15,7 +13,6 @@ export function ActionDock({
   game,
   room,
   selfId,
-  status,
   command,
   pending,
   disabled,
@@ -38,9 +35,10 @@ export function ActionDock({
     | null
   >(null);
 
-  // Estado local das ações antecipadas (Pre-Actions)
-  const [preAction, setPreAction] = useState<PreActionState | null>(null);
-  const executedTurnKeyRef = useRef<string | null>(null);
+  // Pré-ação autoritativa sincronizada pelo servidor para o jogador atual
+  const preAction: PreAction | null = game.status === 'hand-active'
+    ? (game.preActions?.[selfId] ?? null)
+    : null;
 
   const meInRoom = room.players.find(p => p.id === selfId);
   const meInHand = game.hand.players.find(p => p.id === selfId);
@@ -87,107 +85,15 @@ export function ActionDock({
     isMyTurn,
   ]);
 
-  // Execução de ação antecipada quando a vez do jogador chega
-  useEffect(() => {
-    if (!isMyTurn || !preAction) return;
-
-    const turnKey = `${game.hand.dealerSeat}:${game.hand.street}:${game.hand.actions?.length ?? 0}:${room.revision}`;
-    if (executedTurnKeyRef.current === turnKey) {
-      return;
-    }
-
-    const pendingPreAction = preAction;
-    // Consome imediatamente do estado para prevenir dupla submissão
-    setPreAction(null);
-    executedTurnKeyRef.current = turnKey;
-
-    const result = resolvePreAction({
-      preAction: pendingPreAction,
-      allowed: allowed ?? null,
-      currentStreet: game.hand.street,
-      currentDealerSeat: game.hand.dealerSeat,
-    });
-
-    if (result.actionToSend) {
-      void command({ type: 'game-action', action: result.actionToSend });
-    }
-  }, [
-    isMyTurn,
-    preAction,
-    allowed,
-    game.hand.street,
-    game.hand.dealerSeat,
-    game.hand.actions?.length,
-    room.revision,
-    command,
-  ]);
-
-  // Reseta a chave de execução quando não for a vez do jogador
-  useEffect(() => {
-    if (!isMyTurn) {
-      executedTurnKeyRef.current = null;
-    }
-  }, [isMyTurn]);
-
-  // Cancelamento automático da ação antecipada em caso de desconexão, avanço de street ou apostas concorrentes
-  useEffect(() => {
-    if (!preAction) return;
-
-    if (
-      status === 'disconnected' ||
-      status === 'ended' ||
-      disabled ||
-      isSpectator ||
-      isFolded ||
-      isAllIn ||
-      isEliminated ||
-      game.status !== 'hand-active' ||
-      game.hand.status !== 'in_progress' ||
-      game.hand.street !== preAction.street ||
-      game.hand.dealerSeat !== preAction.handDealerSeat
-    ) {
-      setPreAction(null);
-      return;
-    }
-
-    const currentStreetBet = getCurrentStreetBet(game.hand);
-    const playerRoundCommitted = meInHand?.roundCommitted ?? 0;
-    if (
-      shouldCancelPreActionOnBetChange({
-        preAction,
-        currentStreetBet,
-        playerRoundCommitted,
-      })
-    ) {
-      setPreAction(null);
-    }
-  }, [
-    preAction,
-    status,
-    disabled,
-    isSpectator,
-    isFolded,
-    isAllIn,
-    isEliminated,
-    game.status,
-    game.hand.status,
-    game.hand.street,
-    game.hand.dealerSeat,
-    game.hand.players,
-    meInHand?.roundCommitted,
-  ]);
-
-  const handleTogglePreAction = (type: PreActionType) => {
-    if (preAction?.type === type) {
-      setPreAction(null);
+  const handleSelectPreAction = (nextPreAction: PreAction) => {
+    const isSameSelection =
+      preAction?.type === nextPreAction.type &&
+      (nextPreAction.type !== 'call' ||
+        (preAction.type === 'call' && preAction.amount === nextPreAction.amount));
+    if (isSameSelection) {
+      void command({ type: 'clear-pre-action' });
     } else {
-      const currentStreetBet = getCurrentStreetBet(game.hand);
-      setPreAction({
-        type,
-        street: game.hand.street,
-        handDealerSeat: game.hand.dealerSeat,
-        createdCurrentBet: currentStreetBet,
-      });
+      void command({ type: 'set-pre-action', preAction: nextPreAction });
     }
   };
 
@@ -268,6 +174,7 @@ export function ActionDock({
       !isFolded &&
       !isAllIn &&
       !isEliminated &&
+      (meInHand?.chips ?? 0) > 0 &&
       game.status === 'hand-active' &&
       game.hand.status === 'in_progress' &&
       game.hand.currentActorId !== null;
@@ -277,7 +184,11 @@ export function ActionDock({
       const actorName = actor?.name ?? 'outro jogador';
       const currentStreetBet = getCurrentStreetBet(game.hand);
       const playerRoundCommitted = meInHand?.roundCommitted ?? 0;
-      const isFacingBet = currentStreetBet > playerRoundCommitted;
+      const myChips = meInHand?.chips ?? 0;
+      const toCall = Math.max(0, currentStreetBet - playerRoundCommitted);
+      const callAmount = computePreActionCallAmount(toCall, myChips);
+      const isFacingBet = toCall > 0 && callAmount > 0;
+      const isCallAllIn = isFacingBet && myChips <= toCall;
 
       return (
         <footer
@@ -296,7 +207,8 @@ export function ActionDock({
               <button
                 type="button"
                 className="pre-action-cancel-btn"
-                onClick={() => setPreAction(null)}
+                disabled={disabled || pending}
+                onClick={() => void command({ type: 'clear-pre-action' })}
                 aria-label="Cancelar ação antecipada agendada"
                 data-testid="cancel-pre-action"
               >
@@ -306,32 +218,49 @@ export function ActionDock({
           </div>
 
           <div className="pre-actions-grid" role="group" aria-label="Ações antecipadas">
-            {/* 1. Check */}
-            <button
-              type="button"
-              className={`pre-action-btn pre-action-check ${preAction?.type === 'check' ? 'active' : ''}`}
-              disabled={isFacingBet || disabled || pending}
-              onClick={() => handleTogglePreAction('check')}
-              aria-pressed={preAction?.type === 'check'}
-              title={
-                isFacingBet
-                  ? 'Indisponível: há aposta a pagar'
-                  : 'Passar a vez quando chegar sua vez se ninguém apostar'
-              }
-              data-testid="pre-action-check"
-            >
-              <span className="pre-action-checkbox" aria-hidden="true">
-                {preAction?.type === 'check' ? '✓' : ''}
-              </span>
-              <span className="pre-action-label">Check</span>
-            </button>
+            {/* 1. Check (quando toCall === 0) ou Call <valor> (quando toCall > 0) */}
+            {isFacingBet ? (
+              <button
+                type="button"
+                className={`pre-action-btn pre-action-call ${preAction?.type === 'call' ? 'active' : ''}`}
+                disabled={disabled || pending}
+                onClick={() => handleSelectPreAction({ type: 'call', amount: callAmount })}
+                aria-pressed={preAction?.type === 'call'}
+                title={
+                  isCallAllIn
+                    ? `Pagar ${callAmount} (All-in) quando chegar sua vez`
+                    : `Pagar ${callAmount} (Call) se a aposta continuar a mesma`
+                }
+                data-testid="pre-action-call"
+              >
+                <span className="pre-action-checkbox" aria-hidden="true">
+                  {preAction?.type === 'call' ? '✓' : ''}
+                </span>
+                <span className="pre-action-label tabular-nums">{getPreActionLabel('call', callAmount)}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`pre-action-btn pre-action-check ${preAction?.type === 'check' ? 'active' : ''}`}
+                disabled={disabled || pending}
+                onClick={() => handleSelectPreAction({ type: 'check' })}
+                aria-pressed={preAction?.type === 'check'}
+                title="Passar a vez quando chegar sua vez se ninguém apostar"
+                data-testid="pre-action-check"
+              >
+                <span className="pre-action-checkbox" aria-hidden="true">
+                  {preAction?.type === 'check' ? '✓' : ''}
+                </span>
+                <span className="pre-action-label">{getPreActionLabel('check')}</span>
+              </button>
+            )}
 
             {/* 2. Check / Fold */}
             <button
               type="button"
               className={`pre-action-btn pre-action-checkfold ${preAction?.type === 'check-fold' ? 'active' : ''}`}
               disabled={disabled || pending}
-              onClick={() => handleTogglePreAction('check-fold')}
+              onClick={() => handleSelectPreAction({ type: 'check-fold' })}
               aria-pressed={preAction?.type === 'check-fold'}
               title="Passar se gratuito; desistir se houver aposta"
               data-testid="pre-action-check-fold"
@@ -339,7 +268,7 @@ export function ActionDock({
               <span className="pre-action-checkbox" aria-hidden="true">
                 {preAction?.type === 'check-fold' ? '✓' : ''}
               </span>
-              <span className="pre-action-label">Check / Fold</span>
+              <span className="pre-action-label">{getPreActionLabel('check-fold')}</span>
             </button>
 
             {/* 3. Fold */}
@@ -347,7 +276,7 @@ export function ActionDock({
               type="button"
               className={`pre-action-btn pre-action-fold ${preAction?.type === 'fold' ? 'active' : ''}`}
               disabled={disabled || pending}
-              onClick={() => handleTogglePreAction('fold')}
+              onClick={() => handleSelectPreAction({ type: 'fold' })}
               aria-pressed={preAction?.type === 'fold'}
               title="Desistir quando chegar sua vez"
               data-testid="pre-action-fold"
@@ -355,7 +284,7 @@ export function ActionDock({
               <span className="pre-action-checkbox" aria-hidden="true">
                 {preAction?.type === 'fold' ? '✓' : ''}
               </span>
-              <span className="pre-action-label">Fold</span>
+              <span className="pre-action-label">{getPreActionLabel('fold')}</span>
             </button>
           </div>
 
@@ -369,7 +298,16 @@ export function ActionDock({
                   </>
                 ) : (
                   <>
-                    Agendado: <strong>{getPreActionDescription(preAction.type)}</strong> na sua vez
+                    Agendado:{' '}
+                    <strong>
+                      {getPreActionDescription(
+                        preAction.type,
+                        preAction.type === 'call'
+                          ? { amount: preAction.amount, isAllIn: myChips <= preAction.amount }
+                          : undefined,
+                      )}
+                    </strong>{' '}
+                    na sua vez
                   </>
                 )}
               </span>

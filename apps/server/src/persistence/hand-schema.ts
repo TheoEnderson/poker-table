@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { blindsTrackerSchema } from '@poker-table/protocol';
+import { blindsTrackerSchema, preActionsSchema } from '@poker-table/protocol';
 
 const chips = z.number().int().nonnegative();
 const seat = z.number().int().min(1).max(10);
@@ -50,6 +50,7 @@ export const persistedV1 = z.strictObject({
     actions: z.array(handActionPersistenceSchema).optional(),
   }),
   blindsTracker: blindsTrackerSchema.optional(),
+  preActions: preActionsSchema.optional(),
 });
 
 
@@ -65,6 +66,7 @@ export const persistedV2 = z.strictObject({
     actions: z.array(handActionPersistenceSchema).optional(),
   }),
   blindsTracker: blindsTrackerSchema.optional(),
+  preActions: preActionsSchema.optional(),
 });
 
 const potSchema = z.strictObject({
@@ -136,6 +138,7 @@ export const persistedV3Active = z.strictObject({
   previousSettlement: persistedSettlementSchema.optional(),
   admittedPlayerIds: ids.optional(),
   blindsTracker: blindsTrackerSchema.optional(),
+  preActions: preActionsSchema.optional(),
 });
 
 export const persistedV3Settled = z.strictObject({

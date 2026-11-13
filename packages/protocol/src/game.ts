@@ -112,12 +112,27 @@ export const settlementSnapshotSchema = z.strictObject({
 });
 export type SettlementSnapshot = z.infer<typeof settlementSnapshotSchema>;
 
+export const preActionTypeSchema = z.enum(['check', 'check-fold', 'fold', 'call']);
+export type PreActionType = z.infer<typeof preActionTypeSchema>;
+
+export const preActionSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('check') }),
+  z.strictObject({ type: z.literal('check-fold') }),
+  z.strictObject({ type: z.literal('fold') }),
+  z.strictObject({ type: z.literal('call'), amount: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }),
+]);
+export type PreAction = z.infer<typeof preActionSchema>;
+
+export const preActionsSchema = z.record(z.uuid(), preActionSchema);
+export type PreActionsMap = z.infer<typeof preActionsSchema>;
+
 export const gameStateSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('hand-active'),
     hand: handSnapshotSchema,
     admittedPlayerIds: z.array(z.uuid()).optional(),
     blindsState: blindsProgressionStateSchema.optional(),
+    preActions: preActionsSchema.optional(),
   }),
   z.strictObject({
     status: z.literal('hand-settled'),

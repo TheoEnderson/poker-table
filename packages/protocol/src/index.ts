@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { gameStateSchema } from './game.js';
+import { gameStateSchema, preActionSchema } from './game.js';
 export {
   gameStateSchema,
   handSnapshotSchema,
@@ -11,6 +11,9 @@ export {
   settledPlayerSnapshotSchema,
   handActionSchema,
   handActionTypeSchema,
+  preActionTypeSchema,
+  preActionSchema,
+  preActionsSchema,
   type GameState,
   type HandSnapshot,
   type AllowedActions,
@@ -18,6 +21,9 @@ export {
   type PotSnapshot,
   type HandAction,
   type HandActionType,
+  type PreActionType,
+  type PreAction,
+  type PreActionsMap,
 } from './game.js';
 import {
   blindLevelSchema,
@@ -107,6 +113,15 @@ export const removePlayerCommandSchema = z.strictObject({
   type: z.literal('remove-player'),
   playerId: z.string().uuid(),
 });
+export const setPreActionCommandSchema = z.strictObject({
+  ...commandBase,
+  type: z.literal('set-pre-action'),
+  preAction: preActionSchema,
+});
+export const clearPreActionCommandSchema = z.strictObject({
+  ...commandBase,
+  type: z.literal('clear-pre-action'),
+});
 export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('select-seat'), seat: z.number().int().min(1).max(10).nullable() }),
   z.strictObject({ ...commandBase, type: z.literal('rename'), name: displayName }),
@@ -120,6 +135,8 @@ export const commandSchema = z.discriminatedUnion('type', [
   nextHandCommandSchema,
   z.strictObject({ ...commandBase, type: z.literal('reset-game') }),
   removePlayerCommandSchema,
+  setPreActionCommandSchema,
+  clearPreActionCommandSchema,
 ]);
 
 export const participantSchema = z.strictObject({ id: z.uuid(), name: displayName, seat: z.number().int().nullable(), connected: z.boolean(), isHost: z.boolean() });

@@ -3,12 +3,13 @@ import { persistedHandSchema } from './hand-schema.js';
 import { verifyHandV2 } from './hand-v2.js';
 import { verifyGameV3 } from './hand-v3.js';
 import { startHandFlow, type HandFlowState, type SettlementResult, type PotWinnerDecision } from '@poker-table/engine';
-import type { RoomConfig, BlindsTracker } from '@poker-table/protocol';
+import type { RoomConfig, BlindsTracker, PreAction } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
+import { normalizePreActions, verifyPersistedPreActions } from '../game/pre-actions.js';
 
 export type StoredGame =
-  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
-  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
+  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>> }
+  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>> }
   | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
   | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker };
 
@@ -87,9 +88,24 @@ function verify(hand: HandFlowState, config: RoomConfig, participants: readonly 
 }
 
 export function encodeGame(game: StoredGame, config: RoomConfig, participants: readonly { id: string; seat: number | null }[]): string {
-  const payload = game.version === 1 || game.version === 2
-    ? { version: game.version, status: 'hand-active' as const, hand: game.hand, blindsTracker: game.blindsTracker }
-    : game;
+  const preActions = game.status === 'hand-active' ? normalizePreActions(game.preActions) : undefined;
+  let payload: unknown;
+  if (game.version === 1 || game.version === 2) {
+    payload = {
+      version: game.version,
+      status: 'hand-active' as const,
+      hand: game.hand,
+      blindsTracker: game.blindsTracker,
+      ...(preActions !== undefined ? { preActions } : {}),
+    };
+  } else if (game.status === 'hand-active') {
+    payload = {
+      ...game,
+      preActions,
+    };
+  } else {
+    payload = game;
+  }
   const encoded = JSON.stringify(payload);
   decodeGame(encoded, config, participants); // Validate before any write is committed.
   return encoded;
@@ -106,6 +122,8 @@ export function decodeGame(raw: string, config: RoomConfig, participants: readon
     const parsed = persistedHandSchema.parse(JSON.parse(raw));
     if (parsed.version === 1) {
       verify(parsed.hand, config, participants);
+      const preActions = normalizePreActions(parsed.preActions);
+      if (!verifyPersistedPreActions(parsed.hand, preActions)) throw new Error('Invalid persisted pre-actions');
       const admittedPlayerIds = parsed.hand.players.map(p => p.id);
       return freeze({
         version: 1,
@@ -115,10 +133,13 @@ export function decodeGame(raw: string, config: RoomConfig, participants: readon
         tableBudget: config.startingChips * admittedPlayerIds.length,
         admittedPlayerIds,
         blindsTracker: parsed.blindsTracker,
+        ...(preActions !== undefined ? { preActions } : {}),
       });
     }
     if (parsed.version === 2) {
       verifyHandV2(parsed.hand, config, participants);
+      const preActions = normalizePreActions(parsed.preActions);
+      if (!verifyPersistedPreActions(parsed.hand, preActions)) throw new Error('Invalid persisted pre-actions');
       const admittedPlayerIds = parsed.hand.players.map(p => p.id);
       return freeze({
         version: 2,
@@ -128,9 +149,14 @@ export function decodeGame(raw: string, config: RoomConfig, participants: readon
         tableBudget: config.startingChips * admittedPlayerIds.length,
         admittedPlayerIds,
         blindsTracker: parsed.blindsTracker,
+        ...(preActions !== undefined ? { preActions } : {}),
       });
     }
     verifyGameV3(parsed, config, participants);
+    if (parsed.status === 'hand-active') {
+      const preActions = normalizePreActions(parsed.preActions);
+      if (!verifyPersistedPreActions(parsed.hand, preActions)) throw new Error('Invalid persisted pre-actions');
+    }
     return freeze(parsed as StoredGame);
   } catch {
     throw new RoomError('STORAGE_ERROR', 'Estado persistido da partida inválido ou incompatível. Verifique o banco do servidor.');
