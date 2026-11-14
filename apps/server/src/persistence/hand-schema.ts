@@ -1,4 +1,13 @@
+import { cardSchema, handEvaluationSchema } from '@poker-table/protocol';
 import { z } from 'zod';
+
+export const virtualHandStateSchema = z.strictObject({
+  deck: z.array(cardSchema),
+  board: z.array(cardSchema).max(5),
+  holeCards: z.record(z.uuid(), z.tuple([cardSchema, cardSchema])),
+  evaluations: z.record(z.uuid(), handEvaluationSchema).optional(),
+});
+export type VirtualHandState = z.infer<typeof virtualHandStateSchema>;
 import { blindsTrackerSchema, preActionsSchema } from '@poker-table/protocol';
 
 const chips = z.number().int().nonnegative();
@@ -132,6 +141,7 @@ export const potDecisionPersistenceSchema = z.strictObject({
 export const persistedV3Active = z.strictObject({
   version: z.literal(3),
   status: z.literal('hand-active'),
+  virtual: virtualHandStateSchema.optional(),
   hand: persistedV2.shape.hand,
   handNumber: z.number().int().positive(),
   tableBudget: chips.positive(),
@@ -144,6 +154,7 @@ export const persistedV3Active = z.strictObject({
 export const persistedV3Settled = z.strictObject({
   version: z.literal(3),
   status: z.literal('hand-settled'),
+  virtual: virtualHandStateSchema.optional(),
   hand: persistedV2.shape.hand,
   settlement: persistedSettlementSchema,
   decisions: z.array(potDecisionPersistenceSchema),
@@ -156,6 +167,7 @@ export const persistedV3Settled = z.strictObject({
 export const persistedV3Complete = z.strictObject({
   version: z.literal(3),
   status: z.literal('game-complete'),
+  virtual: virtualHandStateSchema.optional(),
   hand: persistedV2.shape.hand,
   settlement: persistedSettlementSchema,
   winnerId: z.uuid(),

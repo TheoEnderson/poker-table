@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState, RoomState } from '@poker-table/protocol';
+import { PlayingCard } from './PlayingCard';
 import { ChipAmount } from '../common/ChipAmount';
 import { formatActionTag, getPlayerLastActionInStreet } from '../../utils/actions';
 import type { SeatPosition } from '../../utils/table-geometry';
@@ -92,6 +93,12 @@ export function SeatPod({
     prevRoundCommitted.current = player.roundCommitted;
   }, [game.hand.street, game.hand.status, isSettled, isHandOver, player.roundCommitted]);
 
+  const isVirtualRoom = game.hand.board !== undefined;
+  const showVirtualReveal =
+    isVirtualRoom && isSettled && game.hand.status === 'showdown' && !isFolded && player.holeCards !== undefined;
+  const showVirtualBacks =
+    isVirtualRoom && !showVirtualReveal && game.status === 'hand-active' && !isWaitingForNextHand && !isFolded && (player.hasCards ?? true);
+
   const podClasses = [
     'player-card',
     'seat-pod',
@@ -124,6 +131,14 @@ export function SeatPod({
       return (
         <span className="action-tag tag-fold">
           {isConnected ? 'FOLD' : 'FOLD · AUSENTE'}
+        </span>
+      );
+    }
+
+    if (showVirtualReveal && player.handEvaluation) {
+      return (
+        <span className="action-tag tag-eval" data-testid={`seat-eval-${player.id}`}>
+          {player.handEvaluation.label}
         </span>
       );
     }
@@ -180,8 +195,18 @@ export function SeatPod({
       }}
     >
       <article className={podClasses} aria-label={`Jogador ${playerName}, assento ${player.seat}`}>
-        {/* Cartas de mão simbólicas (Hole cards) */}
-        {hasHoleCards && (
+        {/* Cartas de mão (virtuais ou simbólicas físicas) */}
+        {showVirtualReveal && player.holeCards ? (
+          <div className="pod-hole-cards pod-hole-cards-virtual" data-testid={`seat-cards-${player.id}`}>
+            <PlayingCard card={player.holeCards[0]} size="xs" testId={`seat-card-${player.id}-0`} />
+            <PlayingCard card={player.holeCards[1]} size="xs" testId={`seat-card-${player.id}-1`} />
+          </div>
+        ) : showVirtualBacks ? (
+          <div className="pod-hole-cards pod-hole-cards-virtual" data-testid={`seat-backs-${player.id}`}>
+            <PlayingCard faceDown size="xs" />
+            <PlayingCard faceDown size="xs" />
+          </div>
+        ) : (!isVirtualRoom && hasHoleCards) && (
           <div className="pod-hole-cards" aria-label="Duas cartas fechadas (físicas)" title="Cartas na mão física">
             <div className="symbolic-hole-card card-left" aria-hidden="true">
               <div className="mini-card-back" />
@@ -217,6 +242,11 @@ export function SeatPod({
 
         <div className="card-status-bar">
           {renderStatusTag()}
+          {showVirtualReveal && (isEliminated || currentChips === 0) && player.handEvaluation && (
+            <span className="action-tag tag-eval" data-testid={`seat-eval-${player.id}`}>
+              {player.handEvaluation.label}
+            </span>
+          )}
         </div>
       </article>
 

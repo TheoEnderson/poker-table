@@ -59,6 +59,7 @@ export function HostSettlementControls({
   }, [room.revision, game.status, game.hand.street, game.hand.status, isShowdown]);
 
   if (!isHost) return null;
+  if (room.config.deckMode === 'virtual' && game.status === 'hand-active') return null;
 
   const handleConfirmResetGame = async (config?: ResetGameConfig) => {
     const ok = await command(config ? { type: 'reset-game', config } : { type: 'reset-game' });

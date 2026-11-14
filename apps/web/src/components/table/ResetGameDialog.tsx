@@ -56,6 +56,8 @@ export function ResetGameDialog({ open, roomConfig, pending, onCancel, onConfirm
         : draft.levels[0]?.bigBlind ?? roomConfig.bigBlind
       : roomConfig.bigBlind;
   const activeType = editSettings ? draft.blindsType : (roomConfig.blindsStructure?.type ?? 'fixed');
+  const activeDeckMode = editSettings ? draft.deckMode : (roomConfig.deckMode ?? 'physical');
+  const deckModeLabel = activeDeckMode === 'virtual' ? 'Cartas virtuais' : 'Cartas físicas';
   const blindsModeLabel =
     activeType === 'hands'
       ? ` (progressivo · ${editSettings ? draft.handsPerLevel || '?' : roomConfig.blindsStructure?.type === 'hands' ? roomConfig.blindsStructure.handsPerLevel : '?'} mãos/nível)`
@@ -105,7 +107,7 @@ export function ResetGameDialog({ open, roomConfig, pending, onCancel, onConfirm
       <form className="reset-game-form" onSubmit={handleSubmit}>
         <h2 id={titleId}>Iniciar Nova Partida e Reiniciar Fichas?</h2>
         <p style={{ whiteSpace: 'pre-line' }}>
-          {`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Todos os participantes sentados receberão ${displayChips.toLocaleString('pt-BR')} fichas.\n• Blinds iniciais: ${displaySB.toLocaleString('pt-BR')} / ${displayBB.toLocaleString('pt-BR')}${blindsModeLabel}.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
+          {`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Modo de cartas: ${deckModeLabel}.\n• Todos os participantes sentados receberão ${displayChips.toLocaleString('pt-BR')} fichas.\n• Blinds iniciais: ${displaySB.toLocaleString('pt-BR')} / ${displayBB.toLocaleString('pt-BR')}${blindsModeLabel}.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
         </p>
 
         <div className="reset-settings-header">

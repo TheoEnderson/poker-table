@@ -4,6 +4,7 @@ import { EngineError, startNextHand, type HandFlowState } from '@poker-table/eng
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
 import { initializeHand, publicGame } from '../game/initial-hand.js';
+import { advanceVirtualNextHand, resolveVirtualProgression, startVirtualGame } from '../game/virtual-hand.js';
 import { decodeGame, encodeGame, encodeHand, type StoredGame } from '../persistence/hand.js';
 import { applyActionAndPreActions, normalizePreActions, removePlayerPreAction, validateSetPreAction } from '../game/pre-actions.js';
 import { settleGameHand } from '../game/settlement.js';
@@ -26,6 +27,7 @@ function withUpdatedActiveGame(
       previousSettlement: stored.previousSettlement,
       admittedPlayerIds: stored.admittedPlayerIds,
       blindsTracker,
+      ...(stored.virtual !== undefined ? { virtual: stored.virtual } : {}),
       ...(cleanPreActions !== undefined ? { preActions: cleanPreActions } : {}),
     };
   }
@@ -139,14 +141,14 @@ export class RoomService {
     }
     return stored;
   }
-  state(id: string): RoomState {
+  state(id: string, viewerId?: string): RoomState {
     const row = this.row(id);
     const config = this.config(row), players = this.players(id);
     const game = this.getGame(row, config, players);
     return {
       id: row.id, code: row.code, config, revision: row.revision, closed: !!row.closed,
       players: players.map(p => ({ id: p.id, name: p.name, seat: p.seat, connected: !!this.connections.get(p.id)?.size, isHost: p.id === row.host_id })),
-      game: game === null ? null : publicGame(game, config),
+      game: game === null ? null : publicGame(game, config, viewerId),
     };
   }
 
@@ -168,7 +170,7 @@ export class RoomService {
       this.store.db.prepare('INSERT INTO participants(id,room_id,name,session_hash,joined_at) VALUES(?,?,?,?,?)')
         .run(playerId, id, data.hostName, hash(sessionToken), new Date().toISOString());
     });
-    return { credentials: { roomId: id, playerId, sessionToken, adminToken }, room: this.state(id) };
+    return { credentials: { roomId: id, playerId, sessionToken, adminToken }, room: this.state(id, playerId) };
   }
   join(code: unknown, input: unknown): Admission {
     const data = joinRoomSchema.parse(input), room = this.find(code);
@@ -182,7 +184,7 @@ export class RoomService {
         .run(playerId, room.id, data.name, data.seat ?? null, hash(sessionToken), new Date().toISOString());
       this.bump(room.id);
     });
-    return { credentials: { roomId: room.id, playerId, sessionToken }, room: this.state(room.id) };
+    return { credentials: { roomId: room.id, playerId, sessionToken }, room: this.state(room.id, playerId) };
   }
   authenticate(input: unknown): Credentials {
     const c = credentialsSchema.parse(input);
@@ -197,7 +199,7 @@ export class RoomService {
     if (connections.size === 0) this.store.transaction(() => this.bump(c.roomId));
     connections.add(connectionId);
     this.connections.set(c.playerId, connections);
-    return this.state(c.roomId);
+    return this.state(c.roomId, c.playerId);
   }
   disconnect(c: Credentials, connectionId: string) {
     const connections = this.connections.get(c.playerId);
@@ -284,7 +286,19 @@ export class RoomService {
                 lastSavedAt: new Date().toISOString(),
               }
             : undefined;
-          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeHand(hand, state.config, state.players, 1, initialTracker), c.roomId);
+          const serializedGame = state.config.deckMode === 'virtual'
+            ? encodeGame(
+                startVirtualGame(
+                  hand,
+                  state.config.startingChips * hand.players.length,
+                  hand.players.map(p => p.id),
+                  initialTracker,
+                ),
+                state.config,
+                state.players,
+              )
+            : encodeHand(hand, state.config, state.players, 1, initialTracker);
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(serializedGame, c.roomId);
           break;
         }
         case 'set-pre-action': {
@@ -315,6 +329,9 @@ export class RoomService {
           if (command.type === 'advance-street') this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
+          if (command.type === 'advance-street' && config.deckMode === 'virtual') {
+            throw new RoomError('INVALID_ACTION', 'No modo de cartas virtuais, as streets avançam automaticamente.');
+          }
           const stored = this.getGame(row, config, players)!;
           if (stored.status !== 'hand-active') throw new RoomError('HAND_ALREADY_COMPLETED', 'Esta mão não aceita mais apostas ou avanços.');
           const { hand: next, preActions: nextPreActions } = applyActionAndPreActions(
@@ -327,13 +344,19 @@ export class RoomService {
             ? { ...stored.blindsTracker, lastSavedAt: new Date().toISOString() }
             : undefined;
           const nextGame = withUpdatedActiveGame(stored, next, nextPreActions, currentTracker, true);
-          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextGame, config, players), c.roomId);
+          const resolvedGame = config.deckMode === 'virtual'
+            ? resolveVirtualProgression(nextGame as Extract<StoredGame, { version: 3; status: 'hand-active' }>)
+            : nextGame;
+          this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(resolvedGame, config, players), c.roomId);
           break;
         }
         case 'settle-hand': {
           this.admin(c, row);
           if (row.game === null) throw new RoomError('GAME_NOT_STARTED', 'A partida ainda não foi iniciada.');
           const config = this.config(row), players = this.players(c.roomId);
+          if (config.deckMode === 'virtual') {
+            throw new RoomError('INVALID_ACTION', 'No modo de cartas virtuais, a liquidação ocorre automaticamente.');
+          }
           const stored = this.getGame(row, config, players)!;
           if (stored.status !== 'hand-active') throw new RoomError('ALREADY_SETTLED', 'Esta mão já foi liquidada.');
           const settlement = settleGameHand(stored.hand, command.decisions);
@@ -420,16 +443,25 @@ export class RoomService {
           ];
           const nextTableBudget = stored.tableBudget + (newEligible.length * config.startingChips);
 
-          const nextActiveGame: StoredGame = {
-            version: 3,
-            status: 'hand-active',
-            hand: nextHandState,
-            handNumber: stored.handNumber + 1,
-            tableBudget: nextTableBudget,
-            previousSettlement: stored.settlement,
-            admittedPlayerIds: nextAdmittedIds,
-            blindsTracker: nextTracker,
-          };
+          const nextActiveGame: StoredGame = config.deckMode === 'virtual'
+            ? advanceVirtualNextHand(
+                nextHandState,
+                stored.handNumber + 1,
+                nextTableBudget,
+                nextAdmittedIds,
+                stored.settlement,
+                nextTracker,
+              )
+            : {
+                version: 3,
+                status: 'hand-active',
+                hand: nextHandState,
+                handNumber: stored.handNumber + 1,
+                tableBudget: nextTableBudget,
+                previousSettlement: stored.settlement,
+                admittedPlayerIds: nextAdmittedIds,
+                blindsTracker: nextTracker,
+              };
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextActiveGame, config, players), c.roomId);
           break;
         }
@@ -473,6 +505,6 @@ export class RoomService {
       this.store.db.prepare('INSERT INTO commands(room_id,player_id,command_id,fingerprint) VALUES(?,?,?,?)').run(c.roomId, c.playerId, commandId, fingerprint);
       this.bump(c.roomId);
     });
-    return this.state(c.roomId);
+    return this.state(c.roomId, c.playerId);
   }
 }

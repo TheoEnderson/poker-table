@@ -150,6 +150,10 @@ export function Table({ code }: { code: string }) {
                     <strong>{room.config.startingChips.toLocaleString('pt-BR')}</strong>
                   </div>
                   <div>
+                    <small>CARTAS</small>
+                    <strong>{room.config.deckMode === 'virtual' ? 'Virtuais' : 'Físicas'}</strong>
+                  </div>
+                  <div>
                     <small>BLINDS</small>
                     <strong>
                       {room.config.smallBlind} / {room.config.bigBlind}
@@ -248,6 +252,10 @@ export function Table({ code }: { code: string }) {
                 <div>
                   <small>FICHAS INICIAIS</small>
                   <strong>{room.config.startingChips.toLocaleString('pt-BR')}</strong>
+                </div>
+                <div>
+                  <small>CARTAS</small>
+                  <strong>{room.config.deckMode === 'virtual' ? 'Virtuais' : 'Físicas'}</strong>
                 </div>
                 <div>
                   <small>BLINDS</small>

@@ -12,7 +12,29 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
     pingInterval: 10000, pingTimeout: 10000,
     allowRequest: (req, callback) => callback(null, sameOrigin(req.headers.origin, req.headers.host)),
   });
-  const broadcast = (roomId: string) => io.to(roomId).emit('room:state', rooms.state(roomId));
+  const emitRoomState = (
+    roomId: string,
+    knownState?: ReturnType<RoomService['state']>,
+    knownViewerId?: string,
+  ) => {
+    const peers = [...io.sockets.sockets.values()].filter(peer => peer.rooms.has(roomId));
+    if (peers.length === 0) return;
+
+    const first = knownState ?? rooms.state(roomId, peers[0]!.data.credentials?.playerId);
+    if (first.config.deckMode !== 'virtual') {
+      io.to(roomId).emit('room:state', first);
+      return;
+    }
+
+    for (const peer of peers) {
+      const peerId = peer.data.credentials?.playerId;
+      const state = knownState && peerId === knownViewerId
+        ? knownState
+        : rooms.state(roomId, peerId);
+      peer.emit('room:state', state);
+    }
+  };
+  const broadcast = (roomId: string) => emitRoomState(roomId);
   io.use((socket, next) => {
     try {
       const auth = authSchema.parse(socket.handshake.auth);
@@ -42,7 +64,7 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
     };
     socket.on('room:sync', ack => {
       if (typeof ack !== 'function') return;
-      try { limit(); rooms.authenticate(credentials); ack({ ok: true, data: rooms.state(credentials.roomId) }); }
+      try { limit(); rooms.authenticate(credentials); ack({ ok: true, data: rooms.state(credentials.roomId, credentials.playerId) }); }
       catch (error) { ack(failure(error)); }
     });
     socket.on('room:command', (input, ack) => {
@@ -51,8 +73,7 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
         limit();
         const command = commandSchema.parse(input);
         const state = rooms.command(credentials, command);
-        // Reutiliza o snapshot já confirmado, sem uma segunda leitura do banco.
-        io.to(credentials.roomId).emit('room:state', state);
+        emitRoomState(credentials.roomId, state, credentials.playerId);
         ack({ ok: true, data: state });
         if (command.type === 'leave') {
           for (const peer of io.sockets.sockets.values()) if (peer.data.credentials.playerId === credentials.playerId) {
@@ -73,7 +94,7 @@ export function attachRealtime(http: HttpServer, rooms: RoomService) {
       } catch (error) {
         let reply = failure(error);
         if (reply.error.code === 'STALE_STATE') {
-          try { socket.emit('room:state', rooms.state(credentials.roomId)); }
+          try { socket.emit('room:state', rooms.state(credentials.roomId, credentials.playerId)); }
           catch (stateError) { reply = failure(stateError); }
         }
         ack(reply);

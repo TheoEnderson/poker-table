@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { persistedHandSchema } from './hand-schema.js';
+import { persistedHandSchema, type VirtualHandState } from './hand-schema.js';
 import { verifyHandV2 } from './hand-v2.js';
 import { verifyGameV3 } from './hand-v3.js';
 import { startHandFlow, type HandFlowState, type SettlementResult, type PotWinnerDecision } from '@poker-table/engine';
@@ -8,10 +8,10 @@ import { RoomError } from '../errors.js';
 import { normalizePreActions, verifyPersistedPreActions } from '../game/pre-actions.js';
 
 export type StoredGame =
-  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>> }
-  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>> }
-  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker }
-  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker };
+  | { version: 1 | 2; status: 'hand-active'; hand: HandFlowState; handNumber: 1; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>>; virtual?: VirtualHandState }
+  | { version: 3; status: 'hand-active'; hand: HandFlowState; handNumber: number; tableBudget: number; previousSettlement?: SettlementResult; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; preActions?: Readonly<Record<string, PreAction>>; virtual?: VirtualHandState }
+  | { version: 3; status: 'hand-settled'; hand: HandFlowState; settlement: SettlementResult; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; virtual?: VirtualHandState }
+  | { version: 3; status: 'game-complete'; hand: HandFlowState; settlement: SettlementResult; winnerId: string; decisions: readonly PotWinnerDecision[]; handNumber: number; tableBudget: number; admittedPlayerIds?: readonly string[]; blindsTracker?: BlindsTracker; virtual?: VirtualHandState };
 
 
 function freeze<T>(value: T): T {

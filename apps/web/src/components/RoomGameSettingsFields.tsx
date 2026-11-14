@@ -9,6 +9,7 @@ import {
 } from '@poker-table/protocol';
 
 export interface RoomGameSettingsDraft {
+  deckMode: 'physical' | 'virtual';
   startingChips: string;
   blindsType: 'fixed' | 'hands' | 'time';
   smallBlind: string;
@@ -25,6 +26,7 @@ export function createRoomGameSettingsDraft(config?: Partial<RoomConfig>): RoomG
   const blindsType = bs?.type ?? 'fixed';
 
   return {
+    deckMode: config?.deckMode ?? 'physical',
     startingChips: String(config?.startingChips ?? 1000),
     blindsType,
     smallBlind: String(smallBlind),
@@ -60,6 +62,7 @@ export function buildResetGameConfig(draft: RoomGameSettingsDraft): ResetGameCon
   }
 
   return resetGameConfigSchema.parse({
+    deckMode: draft.deckMode,
     startingChips: Number(draft.startingChips),
     smallBlind: initialSB,
     bigBlind: initialBB,
@@ -149,6 +152,23 @@ export function RoomGameSettingsFields({ draft, onChange, leadingField }: RoomGa
     <>
       <div className="form-grid">
         {leadingField}
+
+        <label>
+          Modo de cartas
+          <select
+            name="deckMode"
+            value={draft.deckMode}
+            onChange={e =>
+              onChange(prev => ({
+                ...prev,
+                deckMode: e.target.value === 'virtual' ? 'virtual' : 'physical',
+              }))
+            }
+          >
+            <option value="physical">Cartas físicas</option>
+            <option value="virtual">Cartas virtuais</option>
+          </select>
+        </label>
 
         <label>
           Fichas iniciais

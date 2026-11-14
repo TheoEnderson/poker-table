@@ -3,6 +3,7 @@ import { configSchema, gameStateSchema, handSnapshotSchema, computeBlindsState, 
 import { RoomError } from '../errors.js';
 import { publicSettlement } from './settlement.js';
 import type { StoredGame } from '../persistence/hand.js';
+import type { VirtualHandState } from '../persistence/hand-schema.js';
 
 export function initializeHand(players: RoomState['players'], input: RoomConfig): HandFlowState {
   const config = configSchema.parse(input);
@@ -23,23 +24,48 @@ export function initializeHand(players: RoomState['players'], input: RoomConfig)
   }
 }
 
-export function publicHand(hand: HandFlowState) {
+interface PublicHandProjectionOptions {
+  virtual?: VirtualHandState;
+  viewerId?: string;
+  revealShowdown?: boolean;
+}
+
+export function publicHand(hand: HandFlowState, options?: PublicHandProjectionOptions) {
   const allowed = hand.status === 'in_progress' ? getAllowedActions(hand) : null;
   const isEndState = hand.status === 'showdown' || hand.status === 'hand_ended_by_fold';
   const pots = isEndState ? buildPots(hand) : undefined;
   const survivorId = hand.survivorId ?? (hand.status === 'hand_ended_by_fold' ? hand.players.find(p => !p.folded)?.id ?? null : null);
+  const virtual = options?.virtual;
+  const viewerId = options?.viewerId;
+  const revealShowdown = options?.revealShowdown ?? false;
 
   return handSnapshotSchema.parse({
     street: hand.street, status: hand.status,
-    players: hand.players.map(p => ({
-      id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
-      totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
-    })),
+    players: hand.players.map(p => {
+      if (!virtual) {
+        return {
+          id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
+          totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
+        };
+      }
+      const isShowdownFinalist = revealShowdown && !p.folded;
+      const canSeeHoleCards = isShowdownFinalist || (viewerId !== undefined && p.id === viewerId);
+      const playerHoleCards = canSeeHoleCards ? virtual.holeCards[p.id] : undefined;
+      const evaluation = isShowdownFinalist ? virtual.evaluations?.[p.id] : undefined;
+      return {
+        id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
+        totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
+        hasCards: !p.folded,
+        ...(playerHoleCards ? { holeCards: [{ ...playerHoleCards[0] }, { ...playerHoleCards[1] }] } : {}),
+        ...(evaluation ? { handEvaluation: { ...evaluation } } : {}),
+      };
+    }),
+    ...(virtual ? { board: virtual.board.map(card => ({ ...card })) } : {}),
     dealerSeat: hand.dealerSeat, smallBlindSeat: hand.smallBlindSeat, bigBlindSeat: hand.bigBlindSeat,
     smallBlind: hand.smallBlind, bigBlind: hand.bigBlind, pot: hand.pot,
     currentActorId: hand.currentActorId, playersToAct: [...hand.playersToAct],
     allowedActions: allowed,
-    canAdvanceStreet: canAdvanceStreet(hand),
+    canAdvanceStreet: virtual ? false : canAdvanceStreet(hand),
     pots: pots?.map(pot => ({
       id: pot.id,
       type: pot.type,
@@ -52,7 +78,7 @@ export function publicHand(hand: HandFlowState) {
   });
 }
 
-export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig): GameState {
+export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig, viewerId?: string): GameState {
   const blindsTracker = 'blindsTracker' in game ? game.blindsTracker : undefined;
   const currentHand = 'street' in game ? game : game.hand;
   const blindsState = config ? computeBlindsState(config.blindsStructure, blindsTracker, {
@@ -67,6 +93,8 @@ export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig
       blindsState,
     });
   }
+  const virtual = game.virtual;
+  const revealShowdown = game.status !== 'hand-active' && game.hand.status === 'showdown';
   switch (game.status) {
     case 'hand-active': {
       const preActions = game.preActions && Object.keys(game.preActions).length > 0
@@ -74,7 +102,7 @@ export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig
         : undefined;
       return gameStateSchema.parse({
         status: 'hand-active',
-        hand: publicHand(game.hand),
+        hand: publicHand(game.hand, { virtual, viewerId, revealShowdown: false }),
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
         blindsState,
         ...(preActions !== undefined ? { preActions } : {}),
@@ -83,7 +111,7 @@ export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig
     case 'hand-settled':
       return gameStateSchema.parse({
         status: 'hand-settled',
-        hand: publicHand(game.hand),
+        hand: publicHand(game.hand, { virtual, viewerId, revealShowdown }),
         settlement: publicSettlement(game.settlement),
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,
         blindsState,
@@ -91,7 +119,7 @@ export function publicGame(game: StoredGame | HandFlowState, config?: RoomConfig
     case 'game-complete':
       return gameStateSchema.parse({
         status: 'game-complete',
-        hand: publicHand(game.hand),
+        hand: publicHand(game.hand, { virtual, viewerId, revealShowdown }),
         settlement: publicSettlement(game.settlement),
         winnerId: game.winnerId,
         admittedPlayerIds: game.admittedPlayerIds ? [...game.admittedPlayerIds] : undefined,

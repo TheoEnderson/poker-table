@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cardSchema, handEvaluationSchema } from './cards.js';
 import { blindsProgressionStateSchema } from './blinds.js';
 
 const chips = z.number().int().nonnegative();
@@ -63,7 +64,11 @@ export const handSnapshotSchema = z.strictObject({
   players: z.array(z.strictObject({
     id: z.uuid(), seat, chips, roundCommitted: chips, totalCommitted: chips,
     folded: z.boolean(), isAllIn: z.boolean(),
+    hasCards: z.boolean().optional(),
+    holeCards: z.tuple([cardSchema, cardSchema]).optional(),
+    handEvaluation: handEvaluationSchema.optional(),
   })).min(2).max(10),
+  board: z.array(cardSchema).max(5).optional(),
   dealerSeat: seat, smallBlindSeat: seat, bigBlindSeat: seat,
   smallBlind: chips.positive(), bigBlind: chips.positive(), pot: chips,
   currentActorId: z.uuid().nullable(), playersToAct: z.array(z.uuid()).max(10),

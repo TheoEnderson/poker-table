@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { GameState, RoomState } from '@poker-table/protocol';
+import { PlayingCard } from './PlayingCard';
 import { ChipAmount } from '../common/ChipAmount';
 import { getCurrentStreetBet } from '../../utils/actions';
 
@@ -11,6 +13,7 @@ export function MyStatusPanel({
   room: RoomState;
   selfId: string;
 }) {
+  const [cardsHidden, setCardsHidden] = useState(false);
   const meInRoom = room.players.find(p => p.id === selfId);
   const meInHand = game.hand.players.find(p => p.id === selfId);
 
@@ -123,6 +126,44 @@ export function MyStatusPanel({
           )}
         </div>
       </div>
+
+      {meInHand?.holeCards && (
+        <div className="my-hole-cards-section" data-testid="my-hole-cards">
+          <div className="my-hole-cards-meta">
+            <span className="my-hole-cards-title">Suas cartas</span>
+            {meInHand.handEvaluation && (
+              <span className="hand-eval-pill" data-testid="my-hand-evaluation">
+                {meInHand.handEvaluation.label}
+              </span>
+            )}
+          </div>
+          <div className="my-hole-cards-row">
+            <div className="my-hole-cards-pair">
+              <PlayingCard
+                card={cardsHidden ? undefined : meInHand.holeCards[0]}
+                faceDown={cardsHidden}
+                size="lg"
+                testId="my-hole-card-0"
+              />
+              <PlayingCard
+                card={cardsHidden ? undefined : meInHand.holeCards[1]}
+                faceDown={cardsHidden}
+                size="lg"
+                testId="my-hole-card-1"
+              />
+            </div>
+            <button
+              type="button"
+              className="hole-cards-toggle-btn"
+              aria-pressed={cardsHidden}
+              onClick={() => setCardsHidden(prev => !prev)}
+              data-testid="toggle-hole-cards"
+            >
+              {cardsHidden ? 'Mostrar cartas' : 'Ocultar cartas'}
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

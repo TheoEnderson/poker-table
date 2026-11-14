@@ -75,15 +75,17 @@ export function ActiveTable({
       {/* 5. Painel Pessoal do Jogador */}
       <MyStatusPanel game={game} room={room} selfId={selfId} />
 
-      {/* 6. Controles Administrativos de Street (Exclusivo do Anfitrião) */}
-      <HostStreetControls
-        game={game}
-        room={room}
-        selfId={selfId}
-        command={command}
-        pending={pending}
-        disabled={disabled}
-      />
+      {/* 6. Controles Administrativos de Street (Exclusivo do Anfitrião, Modo Físico) */}
+      {room.config.deckMode !== 'virtual' && (
+        <HostStreetControls
+          game={game}
+          room={room}
+          selfId={selfId}
+          command={command}
+          pending={pending}
+          disabled={disabled}
+        />
+      )}
 
       {/* 6B. Controles de Liquidação e Próxima Mão (Exclusivo do Anfitrião) */}
       <HostSettlementControls
