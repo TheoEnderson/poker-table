@@ -88,6 +88,11 @@ export function VirtualTable({
         <div className="table-center-content">
           <TablePot game={game} />
           <CommunityCards game={game} />
+          {room.config.deckMode === 'virtual' && (
+            <span className="deck-mode-badge" data-testid="virtual-deck-badge">
+              Cartas virtuais
+            </span>
+          )}
         </div>
 
         {/* Perímetro da Mesa: Assentos dos Jogadores */}

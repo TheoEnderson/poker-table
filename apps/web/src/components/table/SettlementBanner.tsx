@@ -1,4 +1,5 @@
 import type { GameState, RoomState } from '@poker-table/protocol';
+import { PlayingCard } from './PlayingCard';
 import { ChipAmount } from '../common/ChipAmount';
 
 export function SettlementBanner({
@@ -38,12 +39,29 @@ export function SettlementBanner({
         </div>
       )}
 
+      {room.config.deckMode === 'virtual' && game.hand.status === 'showdown' && game.hand.board && game.hand.board.length > 0 && (
+        <div className="settlement-board-preview" data-testid="settlement-board">
+          <span className="settlement-board-label">Board final:</span>
+          <div className="settlement-board-cards">
+            {game.hand.board.map((card, index) => (
+              <PlayingCard key={`${card.rank}${card.suit}-${index}`} card={card} size="xs" />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="awards-list">
         {settlement.potAwards.map(pot => {
           const potTitle = pot.potType === 'main' ? 'Pote Principal' : `Pote Paralelo ${pot.potIndex}`;
           const isTie = pot.winners.length > 1;
           const winnerNames = pot.winners
-            .map(id => room.players.find(p => p.id === id)?.name ?? 'Jogador')
+            .map(id => {
+              const name = room.players.find(p => p.id === id)?.name ?? 'Jogador';
+              const evalLabel = game.hand.status === 'showdown'
+                ? game.hand.players.find(p => p.id === id)?.handEvaluation?.label
+                : undefined;
+              return evalLabel ? `${name} (${evalLabel})` : name;
+            })
             .join(', ');
           const winnerLabel = isTie ? 'Vencedores (Empate)' : 'Vencedor';
 

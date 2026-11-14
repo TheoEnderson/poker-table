@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { deckModeSchema, type DeckMode } from './cards.js';
 import { gameStateSchema, preActionSchema } from './game.js';
 export {
   gameStateSchema,
@@ -66,6 +67,7 @@ const roomGameSettingsShape = {
   smallBlind: chips,
   bigBlind: chips,
   blindsStructure: blindsStructureSchema.optional(),
+  deckMode: deckModeSchema.default('physical'),
 };
 function validateRoomGameSettings(
   c: {
@@ -172,10 +174,13 @@ export const roomStateSchema = z.strictObject({
   id: z.uuid(), code: roomCode, config: configSchema, revision: z.number().int().nonnegative(),
   closed: z.boolean(), players: z.array(participantSchema), game: gameStateSchema.nullable(),
 });
-export type RoomConfig = z.infer<typeof configSchema>;
+export const roomConfigSchema = configSchema;
+export type RoomConfig = Omit<z.infer<typeof configSchema>, 'deckMode'> & { deckMode?: DeckMode };
 export type ResetGameConfig = z.infer<typeof resetGameConfigSchema>;
+
+export * from './cards.js';
 export type Credentials = z.infer<typeof credentialsSchema>;
-export type RoomState = z.infer<typeof roomStateSchema>;
+export type RoomState = Omit<z.infer<typeof roomStateSchema>, 'config'> & { config: RoomConfig };
 export type Command = z.infer<typeof commandSchema>;
 type WithoutEnvelope<T> = T extends unknown ? Omit<T, 'commandId' | 'expectedRevision'> : never;
 export type CommandInput = WithoutEnvelope<Command>;

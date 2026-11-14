@@ -1,8 +1,67 @@
 import { isDeepStrictEqual } from 'node:util';
-import { settleHandFlow, startNextHand } from '@poker-table/engine';
+import { settleHandFlow, startNextHand, type PotWinnerDecision } from '@poker-table/engine';
 import type { RoomConfig } from '@poker-table/protocol';
-import type { PersistedV3Active, PersistedV3Complete, PersistedV3Settled } from './hand-schema.js';
+import type { PersistedV3Active, PersistedV3Complete, PersistedV3Settled, VirtualHandState } from './hand-schema.js';
+import { resolveVirtualShowdownDecisions } from '../game/evaluator.js';
 import { verifyHandV2 } from './hand-v2.js';
+
+const STREET_BOARD_LENGTH = {
+  preflop: 0,
+  flop: 3,
+  turn: 4,
+  river: 5,
+} as const;
+
+function normalizeDecisions(decisions: readonly PotWinnerDecision[]) {
+  return [...decisions]
+    .map(decision => ({
+      potId: decision.potId,
+      winners: [...(decision.winners ?? decision.winnerIds ?? [])].sort(),
+    }))
+    .sort((left, right) => left.potId.localeCompare(right.potId));
+}
+
+function verifyVirtualState(
+  virtual: VirtualHandState,
+  record: PersistedV3Active | PersistedV3Settled | PersistedV3Complete,
+  require: (condition: boolean) => void,
+) {
+  const holeKeys = Object.keys(virtual.holeCards);
+  require(holeKeys.length === record.hand.players.length);
+  for (const player of record.hand.players) {
+    require(virtual.holeCards[player.id] !== undefined);
+  }
+
+  const allCards = [
+    ...virtual.deck,
+    ...virtual.board,
+    ...Object.values(virtual.holeCards).flat(),
+  ];
+  require(allCards.length === 52);
+  const uniqueCards = new Set(allCards.map(card => `${card.rank}${card.suit}`));
+  require(uniqueCards.size === 52);
+
+  if (record.hand.status === 'showdown') {
+    require(virtual.board.length === 5);
+  } else {
+    require(virtual.board.length === STREET_BOARD_LENGTH[record.hand.street]);
+  }
+
+  if (record.status === 'hand-active') {
+    require(record.hand.status === 'in_progress');
+    require(virtual.evaluations === undefined);
+    return;
+  }
+
+  if (record.hand.status === 'showdown') {
+    const expected = resolveVirtualShowdownDecisions(record.hand, virtual.holeCards, virtual.board);
+    require(isDeepStrictEqual(normalizeDecisions(record.decisions), normalizeDecisions(expected.decisions)));
+    require(isDeepStrictEqual(virtual.evaluations, expected.evaluations));
+  } else {
+    require(virtual.evaluations === undefined);
+    require(record.decisions.length === 0);
+  }
+}
 
 export function verifyGameV3(
   record: PersistedV3Active | PersistedV3Settled | PersistedV3Complete,
@@ -16,6 +75,8 @@ export function verifyGameV3(
   }, 0);
 
   require(Number.isSafeInteger(record.tableBudget) && record.tableBudget > 0);
+  const isVirtualMode = (config.deckMode ?? 'physical') === 'virtual';
+  require(isVirtualMode ? record.virtual !== undefined : record.virtual === undefined);
 
   // A primeira mão começa com o primeiro assento elegível.
   // Somente mãos posteriores utilizam rotação do dealer.
@@ -54,6 +115,7 @@ export function verifyGameV3(
       verifyHandV2(record.hand, config, participants, record.tableBudget, handBlinds);
     }
 
+    if (record.virtual) verifyVirtualState(record.virtual, record, require);
     return;
   }
 
@@ -63,6 +125,7 @@ export function verifyGameV3(
     smallBlind: record.hand.smallBlind,
     bigBlind: record.hand.bigBlind,
   });
+  if (record.virtual) verifyVirtualState(record.virtual, record, require);
 
   // Validate settlement calculation using pure engine
   const calculated = JSON.parse(JSON.stringify(settleHandFlow(record.hand, record.decisions)));

@@ -3240,6 +3240,253 @@
       height: 24px;
     }
   }
+  /* --- Virtual Playing Cards & Hand Evaluations --- */
+  .table-stats {
+    flex-wrap: wrap;
+  }
+  .deck-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--gold);
+    background: rgba(20, 31, 26, 0.85);
+    border: 1px solid rgba(226, 188, 115, 0.45);
+    margin-top: 4px;
+  }
+
+  .community-cards-virtual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    padding: 2px 4px;
+  }
+
+  .playing-card {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 800;
+    line-height: 1;
+    user-select: none;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  .playing-card-front {
+    background: #faf7f0;
+    border: 1px solid #d6cfc2;
+  }
+
+  .playing-card-front.is-black {
+    color: #161b19;
+  }
+
+  .playing-card-front.is-red {
+    color: #b91c1c;
+  }
+
+  .playing-card-front.is-highlighted {
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 0 2px var(--gold-glow);
+  }
+
+  .playing-card-back {
+    background: #1d3557;
+    border: 1.5px solid #cbd5e1;
+    overflow: hidden;
+  }
+
+  .playing-card-back-pattern {
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    border-radius: 3px;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.16) 0 2px,
+      transparent 2px 5px
+    );
+  }
+
+  .playing-card-slot {
+    display: inline-block;
+    border-radius: 6px;
+    border: 1.5px dashed rgba(238, 233, 220, 0.25);
+    background: rgba(13, 20, 17, 0.25);
+    flex-shrink: 0;
+  }
+
+  .playing-card-xs {
+    width: 24px;
+    height: 34px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    gap: 1px;
+  }
+
+  .playing-card-sm {
+    width: 32px;
+    height: 45px;
+    font-size: 0.85rem;
+    gap: 1px;
+  }
+
+  .playing-card-md {
+    width: clamp(34px, 9.5vw, 48px);
+    height: clamp(48px, 13.5vw, 68px);
+    font-size: clamp(0.9rem, 2.6vw, 1.15rem);
+    gap: 2px;
+  }
+
+  .playing-card-lg {
+    width: 52px;
+    height: 74px;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    gap: 3px;
+  }
+
+  .playing-card-rank {
+    letter-spacing: -0.04em;
+  }
+
+  .playing-card-suit {
+    font-size: 0.9em;
+  }
+
+  .pod-hole-cards-virtual {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .my-hole-cards-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .my-hole-cards-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .my-hole-cards-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  .hand-eval-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--gold);
+    background: var(--gold-glow);
+    border: 1px solid rgba(226, 188, 115, 0.5);
+  }
+
+  .my-hole-cards-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .my-hole-cards-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hole-cards-toggle-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #1c2d25;
+    border: 1px solid #425c4f;
+    color: #f4eee1;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .hole-cards-toggle-btn:hover:not(:disabled) {
+    background: #253b31;
+    border-color: var(--gold);
+  }
+
+  .action-tag.tag-eval {
+    background: rgba(226, 188, 115, 0.16);
+    border-color: rgba(226, 188, 115, 0.5);
+    color: var(--gold);
+  }
+
+  .card-status-bar:has(.tag-eval) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .settlement-board-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(13, 20, 17, 0.45);
+    margin-bottom: 10px;
+  }
+
+  .settlement-board-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .settlement-board-cards {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 360px) {
+    .playing-card-xs {
+      width: 20px;
+      height: 28px;
+      font-size: 0.64rem;
+    }
+    .community-cards-virtual {
+      gap: 3px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       scroll-behavior: auto !important;

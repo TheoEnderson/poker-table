@@ -1,6 +1,32 @@
 import type { GameState } from '@poker-table/protocol';
+import { PlayingCard } from './PlayingCard';
 
 export function CommunityCards({ game }: { game: GameState }) {
+  const board = game.hand.board;
+  if (board !== undefined) {
+    return (
+      <div
+        className="community-cards community-cards-virtual"
+        role="region"
+        aria-label="Cartas comunitárias da mesa"
+        data-testid="community-board"
+      >
+        {Array.from({ length: 5 }, (_, index) => {
+          const card = board[index];
+          return card ? (
+            <PlayingCard
+              key={`${card.rank}${card.suit}`}
+              card={card}
+              size="md"
+              testId={`board-card-${index}`}
+            />
+          ) : (
+            <span key={index} className="playing-card-slot playing-card-md" aria-hidden="true" />
+          );
+        })}
+      </div>
+    );
+  }
   const { street, status } = game.hand;
   const isSettled = game.status === 'hand-settled' || game.status === 'game-complete';
 
