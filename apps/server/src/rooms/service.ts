@@ -441,7 +441,16 @@ export class RoomService {
           if (stored.status === 'hand-active') {
             throw new RoomError('GAME_IN_PROGRESS', 'Não é possível reiniciar a partida durante uma mão em andamento. Conclua ou liquide a mão antes de reiniciar.');
           }
-          this.store.db.prepare('UPDATE rooms SET game=NULL WHERE id=?').run(c.roomId);
+          if (command.config) {
+            const nextConfig = configSchema.parse({
+              ...command.config,
+              name: config.name,
+              maxPlayers: config.maxPlayers,
+            });
+            this.store.db.prepare('UPDATE rooms SET config=?, game=NULL WHERE id=?').run(JSON.stringify(nextConfig), c.roomId);
+          } else {
+            this.store.db.prepare('UPDATE rooms SET game=NULL WHERE id=?').run(c.roomId);
+          }
           break;
         }
         case 'remove-player': {

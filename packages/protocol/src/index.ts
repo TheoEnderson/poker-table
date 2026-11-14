@@ -61,24 +61,52 @@ export const PROTOCOL_VERSION = 1 as const;
 export const displayName = z.string().trim().min(1, 'Informe um nome.').max(32, 'Use até 32 caracteres.').regex(/^[^\u0000-\u001f\u007f]+$/, 'Nome inválido.');
 export const roomCode = z.string().trim().toUpperCase().regex(/^[A-HJ-NP-Z2-9]{6}$/, 'O código tem seis letras ou números.');
 const chips = z.number().int().min(1).max(1_000_000);
-export const configSchema = z.strictObject({
-  name: displayName,
-  maxPlayers: z.number().int().min(2).max(10),
+const roomGameSettingsShape = {
   startingChips: chips,
   smallBlind: chips,
   bigBlind: chips,
   blindsStructure: blindsStructureSchema.optional(),
-}).refine(c => c.bigBlind >= c.smallBlind, { message: 'O big blind deve ser igual ou maior que o small blind.', path: ['bigBlind'] })
-  .refine(c => c.startingChips >= c.bigBlind, { message: 'As fichas iniciais devem cobrir o big blind.', path: ['startingChips'] })
-  .refine(c => {
-    if (c.blindsStructure && c.blindsStructure.type !== 'fixed') {
-      const first = c.blindsStructure.levels[0];
-      if (first && (first.smallBlind !== c.smallBlind || first.bigBlind !== c.bigBlind)) {
-        return false;
-      }
+};
+function validateRoomGameSettings(
+  c: {
+    startingChips: number;
+    smallBlind: number;
+    bigBlind: number;
+    blindsStructure?: z.infer<typeof blindsStructureSchema>;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (c.bigBlind < c.smallBlind) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'O big blind deve ser igual ou maior que o small blind.',
+      path: ['bigBlind'],
+    });
+  }
+  if (c.startingChips < c.bigBlind) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'As fichas iniciais devem cobrir o big blind.',
+      path: ['startingChips'],
+    });
+  }
+  if (c.blindsStructure && c.blindsStructure.type !== 'fixed') {
+    const first = c.blindsStructure.levels[0];
+    if (first && (first.smallBlind !== c.smallBlind || first.bigBlind !== c.bigBlind)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'O primeiro nível da estrutura deve corresponder ao Small e Big Blind iniciais.',
+        path: ['blindsStructure'],
+      });
     }
-    return true;
-  }, { message: 'O primeiro nível da estrutura deve corresponder ao Small e Big Blind iniciais.', path: ['blindsStructure'] });
+  }
+}
+export const resetGameConfigSchema = z.strictObject(roomGameSettingsShape).superRefine(validateRoomGameSettings);
+export const configSchema = z.strictObject({
+  name: displayName,
+  maxPlayers: z.number().int().min(2).max(10),
+  ...roomGameSettingsShape,
+}).superRefine(validateRoomGameSettings);
 export const createRoomSchema = z.strictObject({ config: configSchema, hostName: displayName });
 export const joinRoomSchema = z.strictObject({ name: displayName, seat: z.number().int().min(1).max(10).nullable().optional() });
 export const credentialsSchema = z.strictObject({
@@ -133,7 +161,7 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...commandBase, type: z.literal('advance-street') }),
   settleHandCommandSchema,
   nextHandCommandSchema,
-  z.strictObject({ ...commandBase, type: z.literal('reset-game') }),
+  z.strictObject({ ...commandBase, type: z.literal('reset-game'), config: resetGameConfigSchema.optional() }),
   removePlayerCommandSchema,
   setPreActionCommandSchema,
   clearPreActionCommandSchema,
@@ -145,6 +173,7 @@ export const roomStateSchema = z.strictObject({
   closed: z.boolean(), players: z.array(participantSchema), game: gameStateSchema.nullable(),
 });
 export type RoomConfig = z.infer<typeof configSchema>;
+export type ResetGameConfig = z.infer<typeof resetGameConfigSchema>;
 export type Credentials = z.infer<typeof credentialsSchema>;
 export type RoomState = z.infer<typeof roomStateSchema>;
 export type Command = z.infer<typeof commandSchema>;
