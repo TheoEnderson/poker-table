@@ -241,4 +241,98 @@ test.describe('Game Reset / New Game (Reiniciar Partida)', () => {
       await guestContext.close();
     }
   });
+
+  test('allows host to update initial stack and blinds when resetting game without recreating room', async ({
+    page,
+    browser,
+  }) => {
+    await page.goto('/create');
+    await page.getByPlaceholder('Poker de sábado').fill('Mesa Config Reset');
+    await page.getByPlaceholder('Como devemos chamar você?').fill('Alice');
+    await page.getByRole('button', { name: 'Criar mesa' }).click();
+
+    await expect(page.locator('.table-heading h1')).toHaveText('Mesa Config Reset');
+    const roomUrl = page.url();
+    const codeMatch = roomUrl.match(/\/room\/([A-Z0-9]+)/);
+    expect(codeMatch).not.toBeNull();
+    const roomCode = codeMatch![1];
+
+    await page.locator('.seat.empty').first().click();
+    await expect(page.locator('.seat.mine')).toBeVisible();
+
+    const guestContext = await browser.newContext();
+    const page2 = await guestContext.newPage();
+
+    try {
+      await page2.goto(`/join/${roomCode}`);
+      await page2.getByLabel('Seu nome', { exact: true }).fill('Bob');
+      await page2.getByRole('button', { name: 'Entrar na mesa' }).click();
+      await expect(page2.locator('.table-heading h1')).toHaveText('Mesa Config Reset');
+
+      await page2.locator('.seat.empty').first().click();
+      await expect(page2.locator('.seat.mine')).toBeVisible();
+
+      // Start first game and settle one quick fold hand
+      await page.locator('.lobby-start-btn').click();
+      await expect(page.locator('.active-table')).toBeVisible();
+      await page.locator('.action-btn-fold').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Desistir da mão' }).click();
+      await page.locator('.host-fold-settlement .settle-fold-btn').click();
+      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Distribuição' }).click();
+
+      // Open reset dialog and expand room settings editor
+      await page.locator('.host-next-hand-panel .reset-game-btn').click();
+      const dialog = page.locator('dialog[open]');
+      await expect(dialog).toBeVisible();
+
+      await dialog.getByRole('button', { name: 'Alterar configurações da sala' }).click();
+
+      // Validate invalid blind combination keeps modal open and surfaces Zod error
+      await dialog.getByLabel('Small blind').fill('50');
+      await dialog.getByLabel('Big blind').fill('25');
+      await dialog.getByRole('button', { name: 'Reiniciar Fichas' }).click();
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator('.notice.error')).toContainText('big blind');
+
+      // Update stack and switch to progressive blinds by hands
+      await dialog.getByLabel('Fichas iniciais').fill('2500');
+      await dialog.getByLabel('Estrutura de Blinds').selectOption('hands');
+      await dialog.getByLabel('Mãos por nível').fill('2');
+
+      const level1Inputs = dialog.locator('.levels-table tbody tr').first().locator('input');
+      await level1Inputs.nth(0).fill('25');
+      await level1Inputs.nth(1).fill('50');
+
+      await expect(dialog.locator('p')).toContainText('2.500');
+      await expect(dialog.locator('p')).toContainText('25 / 50');
+
+      await dialog.getByRole('button', { name: 'Reiniciar Fichas' }).click();
+      await expect(dialog).toHaveCount(0);
+
+      // Same room code and lobby synced immediately across both devices
+      await expect(page).toHaveURL(new RegExp(`/room/${roomCode}$`));
+      await expect(page2).toHaveURL(new RegExp(`/room/${roomCode}$`));
+      await expect(page.locator('.table-stats')).toContainText('2.500');
+      await expect(page.locator('.table-stats')).toContainText('25 / 50');
+      await expect(page.locator('.table-stats')).toContainText('2 mãos/nível');
+      await expect(page2.locator('.table-stats')).toContainText('2.500');
+      await expect(page2.locator('.table-stats')).toContainText('25 / 50');
+      await expect(page2.locator('.table-stats')).toContainText('2 mãos/nível');
+
+      // Start new match and verify Level 1 progressive blinds and updated starting stacks
+      await page.locator('.lobby-start-btn').click();
+      await expect(page.locator('.active-table')).toBeVisible();
+      await expect(page2.locator('.active-table')).toBeVisible();
+
+      await expect(page.locator('.blinds-badge-progressive .blinds-level-tag')).toHaveText('NÍVEL 1');
+      await expect(page.locator('.blinds-badge-progressive .blinds-amounts')).toHaveText('25 / 50');
+      await expect(page2.locator('.blinds-badge-progressive .blinds-amounts')).toHaveText('25 / 50');
+
+      // Alice (Seat 1 / Dealer+SB) posts 25 -> 2.475, Bob (Seat 2 / BB) posts 50 -> 2.450
+      await expect(page.locator('.my-stack-display')).toContainText('2.475');
+      await expect(page2.locator('.my-stack-display')).toContainText('2.450');
+    } finally {
+      await guestContext.close();
+    }
+  });
 });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { CommandInput, GameState, RoomState } from '@poker-table/protocol';
+import type { CommandInput, GameState, ResetGameConfig, RoomState } from '@poker-table/protocol';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { ChipAmount } from '../common/ChipAmount';
+import { ResetGameDialog } from './ResetGameDialog';
 
 export function HostSettlementControls({
   game,
@@ -59,8 +60,8 @@ export function HostSettlementControls({
 
   if (!isHost) return null;
 
-  const handleConfirmResetGame = async () => {
-    const ok = await command({ type: 'reset-game' });
+  const handleConfirmResetGame = async (config?: ResetGameConfig) => {
+    const ok = await command(config ? { type: 'reset-game', config } : { type: 'reset-game' });
     if (ok) setConfirmReset(false);
   };
 
@@ -94,11 +95,9 @@ export function HostSettlementControls({
           </div>
         </div>
 
-        <ConfirmDialog
+        <ResetGameDialog
           open={confirmReset}
-          title="Iniciar Nova Partida e Reiniciar Fichas?"
-          description={`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Todos os participantes sentados receberão ${room.config.startingChips.toLocaleString('pt-BR')} fichas.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
-          confirmLabel="Reiniciar Fichas"
+          roomConfig={room.config}
           onCancel={() => setConfirmReset(false)}
           onConfirm={handleConfirmResetGame}
           pending={pending}
@@ -353,11 +352,9 @@ export function HostSettlementControls({
           </button>
         </div>
 
-        <ConfirmDialog
+        <ResetGameDialog
           open={confirmReset}
-          title="Iniciar Nova Partida e Reiniciar Fichas?"
-          description={`Esta ação iniciará uma nova partida mantendo os mesmos participantes e assentos.\n\n• Todos os participantes sentados receberão ${room.config.startingChips.toLocaleString('pt-BR')} fichas.\n• Os saldos da partida anterior serão substituídos pelas fichas iniciais.\n• Jogadores anteriormente eliminados voltarão ao jogo com fichas cheias.\n\nDeseja confirmar a reinicialização da partida?`}
-          confirmLabel="Reiniciar Fichas"
+          roomConfig={room.config}
           onCancel={() => setConfirmReset(false)}
           onConfirm={handleConfirmResetGame}
           pending={pending}
