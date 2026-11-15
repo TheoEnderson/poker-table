@@ -1,5 +1,4 @@
 import type { GameState, RoomState } from '@poker-table/protocol';
-import { PlayingCard } from './PlayingCard';
 import { ChipAmount } from '../common/ChipAmount';
 
 export function SettlementBanner({
@@ -35,17 +34,6 @@ export function SettlementBanner({
           <div>
             <strong>{winner.name} venceu a partida!</strong>
             <p>Todas as fichas da mesa foram conquistadas.</p>
-          </div>
-        </div>
-      )}
-
-      {room.config.deckMode === 'virtual' && game.hand.status === 'showdown' && game.hand.board && game.hand.board.length > 0 && (
-        <div className="settlement-board-preview" data-testid="settlement-board">
-          <span className="settlement-board-label">Board final:</span>
-          <div className="settlement-board-cards">
-            {game.hand.board.map((card, index) => (
-              <PlayingCard key={`${card.rank}${card.suit}-${index}`} card={card} size="xs" />
-            ))}
           </div>
         </div>
       )}
