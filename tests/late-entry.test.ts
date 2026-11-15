@@ -79,29 +79,25 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
   it('allows late join across all streets (Flop, Turn, River, Showdown)', async () => {
     await g.setup(2);
 
-    // Pré-flop -> P2 entra
+    // Pré-flop -> Flop automático, P2 entra
     await g.finishRound();
-    await g.advance(); // Flop
     expect(g.hand().street).toBe('flop');
 
     const p2 = g.app.rooms.join(g.host.room.code, { name: 'P2', seat: 3 });
     g.admissions.push(p2);
     g.sockets.push(await g.connect(p2.credentials));
 
-    await g.finishRound();
-    await g.advance(); // Turn
+    await g.finishRound(); // Turn
     expect(g.hand().street).toBe('turn');
 
     const p3 = g.app.rooms.join(g.host.room.code, { name: 'P3', seat: 4 });
     g.admissions.push(p3);
     g.sockets.push(await g.connect(p3.credentials));
 
-    await g.finishRound();
-    await g.advance(); // River
+    await g.finishRound(); // River
     expect(g.hand().street).toBe('river');
 
-    await g.finishRound();
-    await g.advance(); // Showdown
+    await g.finishRound(); // Showdown
     expect(g.hand().status).toBe('showdown');
 
     // Mão em showdown continua com apenas os 2 participantes originais
@@ -124,14 +120,10 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
     const p2Id = p2.credentials.playerId;
 
     // Finaliza Hand 1 até Showdown
-    await g.finishRound(); // preflop
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // preflop -> flop
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     // Liquida a mão 1: Host vence
     await g.settle([{ potId: 'main', winners: [hostId] }]);
@@ -185,13 +177,9 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
 
     // Liquida Hand 1
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.settle([{ potId: 'main', winners: [hostId] }]);
 
     // Anfitrião inicia Hand 2
@@ -230,14 +218,10 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
     expect(forbiddenDuringHand2).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
 
     // Joga a Hand 2 até o fim e liquida
-    await g.finishRound();
-    await g.advance(); // Flop
-    await g.finishRound();
-    await g.advance(); // Turn
-    await g.finishRound();
-    await g.advance(); // River
-    await g.finishRound();
-    await g.advance(); // Showdown
+    await g.finishRound(); // Flop
+    await g.finishRound(); // Turn
+    await g.finishRound(); // River
+    await g.finishRound(); // Showdown
     await g.settle([{ potId: 'main', winners: [p1Id] }]);
 
     // 8. Anfitrião inicia Hand 3 -> Agora que P2 está conectado, é admitido com sucesso!
@@ -368,14 +352,10 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
     expect(g.state().players.find(p => p.id === newcomer.credentials.playerId)?.seat).toBe(3);
 
     // Finaliza Hand 1 até Showdown e liquidação
-    await g.finishRound();
-    await g.advance(); // Flop
-    await g.finishRound();
-    await g.advance(); // Turn
-    await g.finishRound();
-    await g.advance(); // River
-    await g.finishRound();
-    await g.advance(); // Showdown
+    await g.finishRound(); // Flop
+    await g.finishRound(); // Turn
+    await g.finishRound(); // River
+    await g.finishRound(); // Showdown
     await g.settle([{ potId: 'main', winners: [g.admissions[0].credentials.playerId] }]);
 
     // Anfitrião inicia Hand 2
@@ -431,13 +411,9 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
     g.sockets.push(await g.connect(p2.credentials));
 
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.settle([{ potId: 'main', winners: [g.admissions[0].credentials.playerId] }]);
 
     // Inicia Mão 2: 3 jogadores na mesa, total 3000 fichas
@@ -453,13 +429,9 @@ describe('Late Entry into Active Games (Entrada tardia de jogadores)', () => {
     g.sockets.push(await g.connect(p3.credentials));
 
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.settle([{ potId: 'main', winners: [g.admissions[1].credentials.playerId] }]);
 
     // Inicia Mão 3: 4 jogadores na mesa, total 4000 fichas

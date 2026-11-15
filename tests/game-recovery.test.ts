@@ -9,16 +9,21 @@ const g = useLanGame();
 it.each(['preflop', 'flop', 'turn', 'river', 'fold', 'showdown'])('recovers %s without replaying actions or changing financial state', async target => {
   await g.setup(2);
   if (target !== 'preflop' && target !== 'fold') {
-    await g.finishRound(); await g.advance();
+    await g.finishRound(); // -> flop
     if (target !== 'flop') {
-      await g.finishRound(); await g.advance();
-      if (target !== 'turn') { await g.finishRound(); await g.advance(); }
+      await g.finishRound(); // -> turn
+      if (target !== 'turn') {
+        await g.finishRound(); // -> river
+      }
     }
+  }
+  if (target === 'showdown') {
+    // River primeiro ator dá check, capturamos a ação final de fechamento para showdown
+    await g.act('check');
   }
   const socket = g.sockets[g.actorIndex()];
   const input = await g.envelope({ type: 'game-action', action: target === 'fold' ? 'fold' : target === 'showdown' ? 'check' : 'raise', ...(['fold', 'showdown'].includes(target) ? {} : { amount: 100 }) }, socket);
   ok(await g.send(socket, input));
-  if (target === 'showdown') { await g.finishRound(); await g.advance(); }
   const before = await g.sync(), raw = g.raw();
   expect(JSON.parse(raw).version).toBe(2);
   const resumed = await g.restart();
@@ -35,12 +40,19 @@ it.each(['preflop', 'flop', 'turn', 'river', 'fold', 'showdown'])('recovers %s w
   if (target !== 'fold' && target !== 'showdown') { await g.act('call'); g.assertConserved(); }
 });
 
-it.each(['fold', 'call', 'raise', 'all-in', 'advance-street'])('preserves durable deduplication of %s after restart', async action => {
+it.each(['fold', 'call', 'raise', 'all-in', 'auto-advance-check'])('preserves durable deduplication of %s after restart', async action => {
   await g.setup();
-  if (action === 'advance-street') await g.finishRound();
-  const socket = action === 'advance-street' ? g.sockets[0] : g.sockets[g.actorIndex()];
-  const input = await g.envelope(action === 'advance-street' ? { type: action } : { type: 'game-action', action, ...(action === 'raise' ? { amount: 100 } : {}) }, socket);
+  if (action === 'auto-advance-check') {
+    await g.act('call');
+    await g.act('call');
+  }
+  const socket = g.sockets[g.actorIndex()];
+  const payload = action === 'auto-advance-check'
+    ? { type: 'game-action', action: 'check' }
+    : { type: 'game-action', action, ...(action === 'raise' ? { amount: 100 } : {}) };
+  const input = await g.envelope(payload, socket);
   ok(await g.send(socket, input));
+  if (action === 'auto-advance-check') expect(g.hand().street).toBe('flop');
   const raw = g.raw(), state = await g.restart();
   expect(ok(await g.send(socket, input))).toEqual(state);
   expect(g.raw()).toBe(raw);
@@ -91,10 +103,12 @@ it.each([false, true])('serializes concurrent actions in two tabs (identical com
   g.assertConserved();
 });
 
-it('serializes concurrent advances without skipping a street', async () => {
-  await g.setup(); await g.finishRound();
-  const second = await g.connect(g.host.credentials), input = await g.envelope({ type: 'advance-street' });
-  const results = await Promise.all([g.send(g.sockets[0], input), g.send(second, { ...input, commandId: randomUUID() })]);
+it('serializes concurrent street-closing actions without skipping a street', async () => {
+  await g.setup(); await g.act('call'); await g.act('call');
+  const actorSocket = g.sockets[g.actorIndex()];
+  const second = await g.connect(g.admissions[g.actorIndex()].credentials);
+  const input = await g.envelope({ type: 'game-action', action: 'check' }, actorSocket);
+  const results = await Promise.all([g.send(actorSocket, input), g.send(second, { ...input, commandId: randomUUID() })]);
   expect(results.filter(r => r.ok)).toHaveLength(1);
   expect(g.hand().street).toBe('flop');
 });
@@ -113,14 +127,17 @@ it.each(['game', 'command', 'revision'])('rolls back a poker action when writing
   expect(g.hand().pot).toBe(130); g.assertConserved();
 });
 
-it('rolls back a failed street transition without losing cumulative contributions', async () => {
-  await g.setup(); await g.finishRound();
-  const before = g.state(), raw = g.raw(), input = await g.envelope({ type: 'advance-street' });
+it('rolls back a failed automatic street transition without losing cumulative contributions', async () => {
+  await g.setup(); await g.act('call'); await g.act('call');
+  const before = g.state(), raw = g.raw();
+  const actorSocket = g.sockets[g.actorIndex()];
+  const input = await g.envelope({ type: 'game-action', action: 'check' }, actorSocket);
   g.app.store.db.exec("CREATE TRIGGER fail_advance BEFORE INSERT ON commands BEGIN SELECT RAISE(ABORT, 'injected'); END");
-  expect(await g.send(g.sockets[0], input)).toMatchObject({ error: { code: 'STORAGE_ERROR' } });
+  expect(await g.send(actorSocket, input)).toMatchObject({ error: { code: 'STORAGE_ERROR' } });
   expect(g.state()).toEqual(before); expect(g.raw()).toBe(raw);
   g.app.store.db.exec('DROP TRIGGER fail_advance');
-  ok(await g.send(g.sockets[0], input));
+  ok(await g.send(actorSocket, input));
+  expect(g.hand().street).toBe('flop');
   expect(g.hand().pot).toBe(60);
 });
 

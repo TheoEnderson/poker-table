@@ -91,7 +91,8 @@ class LanGame {
     return ok(await this.command(0, { type: 'next-hand' }));
   }
   async finishRound() {
-    for (let n = 0; this.hand().currentActorId !== null; n++) {
+    const startStreet = this.hand().street;
+    for (let n = 0; this.hand().currentActorId !== null && this.hand().street === startStreet; n++) {
       if (n >= 15) throw Error('Round failed to finish');
       const hand = this.hand(), actor = hand.players.find(p => p.id === hand.currentActorId)!;
       await this.act(actor.roundCommitted < hand.currentRound.currentBet ? 'call' : 'check');

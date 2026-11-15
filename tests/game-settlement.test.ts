@@ -12,15 +12,11 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
     const p2 = g.admissions[2].credentials.playerId;
 
     // Preflop: dealer is host (seat 1), SB is p1 (seat 2), BB is p2 (seat 3)
-    // Host acts first (calls BB 20), p1 calls 10, p2 checks
-    await g.finishRound();
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    // Host acts first (calls BB 20), p1 calls 10, p2 checks -> avança automaticamente
+    await g.finishRound(); // -> flop
+    await g.finishRound(); // -> turn
+    await g.finishRound(); // -> river
+    await g.finishRound(); // -> showdown
 
     expect(g.state().game?.hand.status).toBe('showdown');
     expect(g.state().game?.status).toBe('hand-active');
@@ -76,13 +72,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
     await g.act('call');
 
     // Flop, Turn, River check down
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // showdown
 
     expect(g.state().game?.hand.status).toBe('showdown');
     // Main pot: 35 * 3 = 105 chips.
@@ -115,28 +107,24 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
 
     // Preflop:
     // P1 posted SB 10, P2 posted BB 20.
-    // Host calls 20. P1 calls 10 (20 total). P2 checks.
+    // Host calls 20. P1 calls 10 (20 total). P2 checks -> Flop automático
     await g.finishRound();
-    await g.advance(); // flop
 
     // Flop:
     // P1 checks. P2 bets 30.
     // Host calls 30 (all-in: 20 + 30 = 50 chips committed).
-    // P1 calls 30 (50 committed).
+    // P1 calls 30 (50 committed) -> Turn automático
     await g.act('check'); // P1
     await g.act('raise', 30); // P2
     await g.act('all-in'); // Host (stack was 30, goes all-in)
     await g.act('call'); // P1
 
-    await g.advance(); // turn
     // Turn: Host is all-in. P1 (stack 150) and P2 can bet.
-    // P1 bets 100. P2 calls 100.
+    // P1 bets 100. P2 calls 100 -> River automático
     await g.act('raise', 100);
     await g.act('call');
 
-    await g.advance(); // river
-    await g.finishRound(); // both check
-    await g.advance(); // showdown
+    await g.finishRound(); // river -> showdown
 
     expect(g.state().game?.hand.status).toBe('showdown');
     const hand = g.hand();
@@ -187,13 +175,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
   it('enforces host authorization and rejects non-admin settlement', async () => {
     await g.setup(3);
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     // Guest client (index 1) attempts to settle
     const reply = await g.send(g.sockets[1], await g.envelope({ type: 'settle-hand', decisions: [] }, g.sockets[1]));
@@ -220,13 +204,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
 
     // Advance to showdown
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     // 1. Missing decision for contested main pot
     const replyMissing = await g.command(0, { type: 'settle-hand', decisions: [] });
@@ -266,13 +246,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
     const p1 = g.admissions[1].credentials.playerId;
 
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     await g.settle([{ potId: 'main', winners: [p1] }]);
 
@@ -288,13 +264,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
     const p2 = g.admissions[2].credentials.playerId;
 
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     const envelope = await g.envelope({ type: 'settle-hand', decisions: [{ potId: 'main', winners: [p1] }] });
     const reply1 = await g.send(g.sockets[0], envelope);
@@ -320,13 +292,9 @@ describe('Showdown and Settlement Multiplayer (Etapa 3C.1)', () => {
     const p1 = g.admissions[1].credentials.playerId;
 
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     const beforeRestart = await g.settle([{ potId: 'main', winners: [p1] }]);
     expect(beforeRestart.game?.status).toBe('hand-settled');

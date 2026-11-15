@@ -139,6 +139,31 @@ describe('7-card Texas Holdem evaluator', () => {
     expect(compareEvaluatedHands(p1, p2)).toBe(0);
   });
 
+  it('evaluates 2-card preflop hands and 5/6-card postflop boards accurately', () => {
+    const pocketAces = evaluateBestHand([c('As'), c('Ah')], []);
+    const pocketKings = evaluateBestHand([c('Ks'), c('Kh')], []);
+    const aceKing = evaluateBestHand([c('Ad'), c('Kc')], []);
+    const aceQueen = evaluateBestHand([c('Ac'), c('Qd')], []);
+
+    expect(pocketAces.category).toBe('pair');
+    expect(pocketAces.label).toBe('Par');
+    expect(aceKing.category).toBe('high_card');
+    expect(aceKing.label).toBe('Carta Alta');
+    expect(compareEvaluatedHands(pocketAces, pocketKings)).toBeGreaterThan(0);
+    expect(compareEvaluatedHands(pocketKings, aceKing)).toBeGreaterThan(0);
+    expect(compareEvaluatedHands(aceKing, aceQueen)).toBeGreaterThan(0);
+
+    // Flop (3 community cards -> 5 cards total)
+    const flopEval = evaluateBestHand([c('Ah'), c('Kd')], cards(['As', 'Ad', '7c']));
+    expect(flopEval.category).toBe('three_of_a_kind');
+    expect(flopEval.label).toBe('Trinca');
+
+    // Turn (4 community cards -> 6 cards total)
+    const turnEval = evaluateBestHand([c('Ah'), c('Kd')], cards(['As', 'Ad', '7c', 'Ks']));
+    expect(turnEval.category).toBe('full_house');
+    expect(turnEval.label).toBe('Full House');
+  });
+
   it('resolves main pot and side pot winners accurately in showdown', () => {
     const p1 = randomUUID();
     const p2 = randomUUID();
@@ -347,6 +372,62 @@ describe('virtual cards multiplayer server flow and anti-cheat projection', () =
     expect(afterAllIn.game?.hand.status).toBe('showdown');
     expect(afterAllIn.game?.hand.board).toHaveLength(5);
     expect(afterAllIn.game!.hand.players.every(p => p.holeCards?.length === 2 && p.handEvaluation !== undefined)).toBe(true);
+  });
+
+  it('projects live handEvaluation per active viewer across preflop, flop, turn, river and hides after fold', async () => {
+    const { code } = await setupVirtual(3);
+    const ids = g.admissions.map(a => a.credentials.playerId);
+
+    const assertViewerProjection = async (viewerIdx: number, expectedBoardLen: number) => {
+      const state = await g.sync(g.sockets[viewerIdx]);
+      const hand = state.game!.hand;
+      expect(hand.board).toHaveLength(expectedBoardLen);
+      const viewerId = ids[viewerIdx]!;
+      for (const p of hand.players) {
+        if (p.id === viewerId && !p.folded) {
+          expect(p.holeCards).toHaveLength(2);
+          const expected = evaluateBestHand(p.holeCards as [Card, Card], hand.board ?? []);
+          expect(p.handEvaluation).toEqual({
+            category: expected.category,
+            label: expected.label,
+          });
+        } else {
+          expect(p.handEvaluation).toBeUndefined();
+        }
+      }
+    };
+
+    // Preflop: all 3 active players see only their own 2-card handEvaluation; HTTP spectator sees none
+    for (let i = 0; i < 3; i += 1) {
+      await assertViewerProjection(i, 0);
+    }
+    const spectator = await fetch(`${g.base}/api/rooms/${code}`).then(r => r.json()) as { ok: boolean; data: RoomState };
+    expect(spectator.data.game!.hand.players.every(p => p.handEvaluation === undefined)).toBe(true);
+
+    // P0 folds preflop: P0 loses handEvaluation (folded), P1 & P2 keep theirs
+    await g.act('fold');
+    await assertViewerProjection(0, 0);
+    expect((await g.sync(g.sockets[0])).game!.hand.players.find(p => p.id === ids[0])!.handEvaluation).toBeUndefined();
+    await assertViewerProjection(1, 0);
+
+    // Complete preflop -> Flop (3 board cards)
+    await g.act('call');
+    await g.act('check');
+    await assertViewerProjection(1, 3);
+    await assertViewerProjection(2, 3);
+    await assertViewerProjection(0, 3);
+
+    // Flop -> Turn (4 board cards)
+    await g.act('check');
+    await g.act('check');
+    await assertViewerProjection(1, 4);
+    await assertViewerProjection(2, 4);
+
+    // Turn -> River (5 board cards)
+    await g.act('check');
+    await g.act('check');
+    await assertViewerProjection(1, 5);
+    await assertViewerProjection(2, 5);
   });
 
   it('supports switching deckMode via reset-game', async () => {

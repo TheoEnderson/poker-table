@@ -759,7 +759,10 @@
     box-sizing: border-box;
   }
   .virtual-table-arena.table-mode-virtual {
-    margin-top: 48px;
+    margin: 46px auto 8px;
+    aspect-ratio: 1 / 0.94;
+    min-height: 315px;
+    max-height: 365px;
   }
   .virtual-table-arena.seats-dense {
     aspect-ratio: 1 / 1.25;
@@ -1550,10 +1553,24 @@
   .seat-pod-wrapper:has(.pod-hole-cards-virtual) .pod-bet-badge.zone-south {
     top: -46px;
   }
+  .seat-pod-wrapper:has(.pod-hole-cards-self) .player-bet-badge.zone-south,
+  .seat-pod-wrapper:has(.pod-hole-cards-self) .pod-bet-badge.zone-south {
+    top: -58px;
+  }
+  @media (min-width: 768px) {
+    .seat-pod-wrapper:has(.pod-hole-cards-self) .player-bet-badge.zone-south,
+    .seat-pod-wrapper:has(.pod-hole-cards-self) .pod-bet-badge.zone-south {
+      top: -64px;
+    }
+  }
   @media (max-width: 360px) {
     .seat-pod-wrapper:has(.pod-hole-cards-virtual) .player-bet-badge.zone-south,
     .seat-pod-wrapper:has(.pod-hole-cards-virtual) .pod-bet-badge.zone-south {
       top: -38px;
+    }
+    .seat-pod-wrapper:has(.pod-hole-cards-self) .player-bet-badge.zone-south,
+    .seat-pod-wrapper:has(.pod-hole-cards-self) .pod-bet-badge.zone-south {
+      top: -52px;
     }
   }
   .player-bet-badge.zone-north, .pod-bet-badge.zone-north { bottom: -14px; left: 50%; transform: translate(-50%, 100%); }
@@ -3437,39 +3454,58 @@
     gap: 3px;
   }
 
+  .pod-hole-cards.pod-hole-cards-self {
+    appearance: none;
+    background: transparent;
+    border: none;
+    margin: 0;
+    padding: 0 2px;
+    cursor: pointer;
+    pointer-events: auto;
+    min-height: 44px;
+    min-width: 44px;
+    align-items: flex-end;
+    gap: 4px;
+    border-radius: 6px;
+  }
+
+  .pod-hole-cards.pod-hole-cards-self:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .pod-hole-cards.pod-hole-cards-self .playing-card-sm {
+    width: 32px;
+    height: 45px;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  }
+
+  @media (min-width: 768px) {
+    .pod-hole-cards.pod-hole-cards-self .playing-card-sm {
+      width: 36px;
+      height: 50px;
+      font-size: 1rem;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .pod-hole-cards.pod-hole-cards-self .playing-card-sm {
+      width: 28px;
+      height: 40px;
+      font-size: 0.82rem;
+    }
+  }
+
   .seats-dense .pod-hole-cards.pod-hole-cards-virtual {
     top: auto;
     bottom: calc(100% + 3px);
   }
 
-  .my-hole-cards-section {
-    padding-top: 12px;
+  .my-virtual-hand-bar {
+    padding-top: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  @media (min-width: 640px) {
-    .my-status-content:has(.my-hole-cards-section) {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 16px;
-    }
-    .my-status-content:has(.my-hole-cards-section) .my-status-body {
-      min-width: 0;
-    }
-    .my-status-content:has(.my-hole-cards-section) .my-hole-cards-section {
-      padding-top: 0;
-      border-top: none;
-      padding-left: 16px;
-      border-left: 1px solid rgba(255, 255, 255, 0.08);
-      min-width: 0;
-    }
-  }
-
-  .my-hole-cards-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3477,55 +3513,58 @@
     flex-wrap: wrap;
   }
 
-  .my-hole-cards-title {
+  .my-virtual-hand-eval {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+  }
+
+  .my-hole-cards-hidden-hint {
     font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 600;
     color: var(--muted);
   }
 
   .hand-eval-pill {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
+    padding: 4px 10px;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: var(--gold);
     background: var(--gold-glow);
-    border: 1px solid rgba(226, 188, 115, 0.5);
-  }
-
-  .my-hole-cards-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .my-hole-cards-pair {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    border: 1px solid rgba(226, 188, 115, 0.55);
   }
 
   .hole-cards-toggle-btn {
-    min-height: 44px;
+    min-height: 36px;
     min-width: 44px;
-    padding: 10px 14px;
-    border-radius: 10px;
+    padding: 6px 12px;
+    border-radius: 9px;
     background: #1c2d25;
     border: 1px solid #425c4f;
     color: #f4eee1;
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 600;
+    cursor: pointer;
+  }
+
+  @media (pointer: coarse) {
+    .hole-cards-toggle-btn {
+      min-height: 44px;
+      padding: 8px 14px;
+    }
   }
 
   .hole-cards-toggle-btn:hover:not(:disabled) {
     background: #253b31;
     border-color: var(--gold);
+  }
+
+  .hole-cards-toggle-btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
   }
 
   .action-tag.tag-eval {

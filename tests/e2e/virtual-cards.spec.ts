@@ -46,11 +46,13 @@ test.describe('Modo de Cartas Virtuais E2E', () => {
       await expect(page.locator('.table-center-content [data-testid="virtual-deck-badge"]')).toHaveCount(0);
       await expect(page.locator('.host-street-controls')).toHaveCount(0);
 
-      // Preflop: cada jogador vê apenas suas próprias 2 cartas fechadas
-      await expect(page.getByTestId('my-hole-card-0')).toHaveClass(/playing-card-front/);
-      await expect(page.getByTestId('my-hole-card-1')).toHaveClass(/playing-card-front/);
-      await expect(page2.getByTestId('my-hole-card-0')).toHaveClass(/playing-card-front/);
-      await expect(page2.getByTestId('my-hole-card-1')).toHaveClass(/playing-card-front/);
+      // Preflop: cada jogador vê suas próprias 2 cartas viradas para cima no próprio assento (sem painel duplicado embaixo)
+      await expect(page.getByTestId('my-hole-cards')).toHaveCount(0);
+      await expect(page2.getByTestId('my-hole-cards')).toHaveCount(0);
+      await expect(page.locator('.pod-self [data-testid="my-hole-card-0"]')).toHaveClass(/playing-card-front/);
+      await expect(page.locator('.pod-self [data-testid="my-hole-card-1"]')).toHaveClass(/playing-card-front/);
+      await expect(page2.locator('.pod-self [data-testid="my-hole-card-0"]')).toHaveClass(/playing-card-front/);
+      await expect(page2.locator('.pod-self [data-testid="my-hole-card-1"]')).toHaveClass(/playing-card-front/);
 
       const aliceCardsText = [
         await page.getByTestId('my-hole-card-0').getAttribute('aria-label'),
@@ -63,10 +65,17 @@ test.describe('Modo de Cartas Virtuais E2E', () => {
       expect(aliceCardsText[0]).toBeTruthy();
       expect(brunoCardsText[0]).toBeTruthy();
 
-      // Durante a mão ativa, os assentos na mesa exibem versos de cartas e nenhuma carta frontal exposta
-      await expect(page.locator('.seat-pod .pod-hole-cards-virtual .playing-card-front')).toHaveCount(0);
-      await expect(page2.locator('.seat-pod .pod-hole-cards-virtual .playing-card-front')).toHaveCount(0);
-      await expect(page.locator('.seat-pod .pod-hole-cards-virtual .playing-card-back')).toHaveCount(4);
+      // Indicador ao vivo de combinação já exibe a força pré-flop (Par ou Carta Alta) no painel compacto
+      await expect(page.getByTestId('my-virtual-hand-bar')).toBeVisible();
+      await expect(page.getByTestId('my-hand-evaluation')).toHaveText(/^(Par|Carta Alta)$/);
+      await expect(page2.getByTestId('my-hand-evaluation')).toHaveText(/^(Par|Carta Alta)$/);
+
+      // Durante a mão ativa, apenas as 2 cartas do próprio jogador ficam visíveis na mesa; adversário exibe 2 versos
+      await expect(page.locator('.seat-pod.pod-self .pod-hole-cards-virtual .playing-card-front')).toHaveCount(2);
+      await expect(page.locator('.seat-pod:not(.pod-self) .pod-hole-cards-virtual .playing-card-front')).toHaveCount(0);
+      await expect(page.locator('.seat-pod:not(.pod-self) .pod-hole-cards-virtual .playing-card-back')).toHaveCount(2);
+      await expect(page2.locator('.seat-pod.pod-self .pod-hole-cards-virtual .playing-card-front')).toHaveCount(2);
+      await expect(page2.locator('.seat-pod:not(.pod-self) .pod-hole-cards-virtual .playing-card-back')).toHaveCount(2);
 
       const assertSeatCardsAbovePodsAndClear = async () => {
         const topBar = await page.locator('.table-top-status-bar').boundingBox();
@@ -97,36 +106,46 @@ test.describe('Modo de Cartas Virtuais E2E', () => {
         }
       };
 
-      // Mobile 390px: MyStatusPanel empilhado verticalmente e cartas acima dos pods sem colisões
+      // Mobile 390px: painel inferior compacto e cartas acima dos pods sem colisões
       await assertSeatCardsAbovePodsAndClear();
       const bodyBox390 = await page.locator('.my-status-body').boundingBox();
-      const holeSectionBox390 = await page.getByTestId('my-hole-cards').boundingBox();
+      const handBarBox390 = await page.getByTestId('my-virtual-hand-bar').boundingBox();
       expect(bodyBox390).not.toBeNull();
-      expect(holeSectionBox390).not.toBeNull();
-      expect(bodyBox390!.y + bodyBox390!.height).toBeLessThanOrEqual(holeSectionBox390!.y);
+      expect(handBarBox390).not.toBeNull();
+      expect(bodyBox390!.y + bodyBox390!.height).toBeLessThanOrEqual(handBarBox390!.y + 2);
 
-      // Botão Ocultar/Mostrar cartas funciona com aria-pressed e alvo acessível
+      // Ocultar/Mostrar cartas pelo botão do painel E pelo toque direto nas cartas do próprio assento
       const toggleBtn = page.getByTestId('toggle-hole-cards');
+      const seatCardsBtn = page.getByTestId('seat-self-hole-cards');
       await expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
+      await expect(seatCardsBtn).toHaveAttribute('aria-pressed', 'false');
+
       await toggleBtn.click();
       await expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
+      await expect(seatCardsBtn).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByTestId('my-hole-card-0')).toHaveClass(/playing-card-back/);
       await expect(page.getByTestId('my-hole-card-1')).toHaveClass(/playing-card-back/);
-      await toggleBtn.click();
-      await expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
-      await expect(page.getByTestId('my-hole-card-0')).toHaveClass(/playing-card-front/);
+      await expect(page.getByTestId('my-hand-evaluation')).toHaveCount(0);
+      await expect(page.getByTestId('my-hole-cards-hidden')).toBeVisible();
 
-      // Desktop 1280x800: ActionDock em linha cheia horizontal e MyStatusPanel em duas colunas
+      // Tocar diretamente nas cartas do próprio assento revela novamente cartas e combinação
+      await seatCardsBtn.click();
+      await expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
+      await expect(seatCardsBtn).toHaveAttribute('aria-pressed', 'false');
+      await expect(page.getByTestId('my-hole-card-0')).toHaveClass(/playing-card-front/);
+      await expect(page.getByTestId('my-hand-evaluation')).toBeVisible();
+
+      // Desktop 1280x800: ActionDock em linha cheia horizontal e painel inferior compacto
       await page.setViewportSize({ width: 1280, height: 800 });
       const overflowDesktop = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(overflowDesktop).toBeLessThanOrEqual(1280);
       await assertSeatCardsAbovePodsAndClear();
 
       const bodyBoxDesktop = await page.locator('.my-status-body').boundingBox();
-      const holeSectionBoxDesktop = await page.getByTestId('my-hole-cards').boundingBox();
+      const handBarBoxDesktop = await page.getByTestId('my-virtual-hand-bar').boundingBox();
       expect(bodyBoxDesktop).not.toBeNull();
-      expect(holeSectionBoxDesktop).not.toBeNull();
-      expect(bodyBoxDesktop!.x + bodyBoxDesktop!.width).toBeLessThanOrEqual(holeSectionBoxDesktop!.x);
+      expect(handBarBoxDesktop).not.toBeNull();
+      expect(handBarBoxDesktop!.y).toBeGreaterThanOrEqual(bodyBoxDesktop!.y);
 
       const dockContentBox = await page.locator('.action-dock-active .action-dock-content').boundingBox();
       const actionButtons = page.locator('.action-dock-active .action-buttons-grid button');
@@ -146,24 +165,28 @@ test.describe('Modo de Cartas Virtuais E2E', () => {
       expect(overflow320).toBeLessThanOrEqual(320);
       await assertSeatCardsAbovePodsAndClear();
 
-      // Avanço automático: Preflop -> Flop (3 cartas)
+      // Avanço automático: Preflop -> Flop (3 cartas) com combinação ao vivo atualizada
       await expect(page.locator('[data-testid^="board-card-"]')).toHaveCount(0);
       await page.locator('.action-btn-call').click();
       await page2.locator('.action-btn-check').click();
       await expect(page.locator('[data-testid^="board-card-"]')).toHaveCount(3);
       await expect(page2.locator('[data-testid^="board-card-"]')).toHaveCount(3);
+      await expect(page.getByTestId('my-hand-evaluation')).toBeVisible();
+      await expect(page2.getByTestId('my-hand-evaluation')).toBeVisible();
 
       // Flop -> Turn (4 cartas)
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
       await expect(page.locator('[data-testid^="board-card-"]')).toHaveCount(4);
       await expect(page2.locator('[data-testid^="board-card-"]')).toHaveCount(4);
+      await expect(page.getByTestId('my-hand-evaluation')).toBeVisible();
 
       // Turn -> River (5 cartas)
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
       await expect(page.locator('[data-testid^="board-card-"]')).toHaveCount(5);
       await expect(page2.locator('[data-testid^="board-card-"]')).toHaveCount(5);
+      await expect(page.getByTestId('my-hand-evaluation')).toBeVisible();
 
       // River -> Showdown automático
       await page2.locator('.action-btn-check').click();

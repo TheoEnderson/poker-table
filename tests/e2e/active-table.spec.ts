@@ -379,11 +379,10 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       );
       expect(callResult.ok).toBe(true);
 
-      // Preflop completed: Pot is now 120 (60 + 60)
+      // Preflop completed: Pot is now 120 (60 + 60) and advances automatically to Flop
       await expect(page.locator('.pot-value')).toContainText('120');
-      // Host has HostStreetControls visible, no redundant bottom dock message
-      await expect(page.locator('.host-street-controls')).toBeVisible();
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
     } finally {
       guestSocket.disconnect();
     }
@@ -769,38 +768,8 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       );
       expect(danielaCheck.ok).toBe(true);
 
-      // Bets are equalized: Carlos (host) sees HostStreetControls with no redundant bottom dock message
-      await expect(page.locator('.host-street-controls')).toBeVisible();
-      await expect(page.locator('.host-advance-btn')).toHaveText('Iniciar Flop ♠');
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-
-      // Host advances to Flop via socket command
-      const hostSocket: Socket<ServerEvents, ClientEvents> = io('http://127.0.0.1:3100', {
-        auth: { protocol: 1, credentials: host.credentials },
-        transports: ['websocket'],
-        autoConnect: false,
-      });
-      await new Promise<void>((resolve, reject) => {
-        hostSocket.once('room:state', () => resolve());
-        hostSocket.once('connect_error', reject);
-        hostSocket.connect();
-      });
-
-      const hostState = await new Promise<RoomState>((resolve, reject) =>
-        hostSocket.emit('room:sync', reply => (reply.ok ? resolve(reply.data) : reject(Error(reply.error.message)))),
-      );
-      const advRes = await new Promise<Reply<RoomState>>(resolve =>
-        hostSocket.emit(
-          'room:command',
-          { type: 'advance-street', commandId: randomUUID(), expectedRevision: hostState.revision },
-          resolve,
-        ),
-      );
-      expect(advRes.ok).toBe(true);
-      hostSocket.disconnect();
-
-      // Now preflop is complete, we are on the Flop!
-      // In heads-up postflop, Daniela (BB) acts first. Daniela checks on Flop
+      // Bets are equalized -> advances automatically to the Flop (no HostStreetControls)
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
       await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
       const danielaFlopState = await new Promise<RoomState>((resolve, reject) =>
         guestSocket.emit('room:sync', reply => (reply.ok ? resolve(reply.data) : reject(Error(reply.error.message)))),
@@ -911,49 +880,16 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       // Bruno (SB) calls 10 (Pagar 10)
       await page.locator('.action-btn-call').click();
 
-      // Fernanda (BB) checks (button Passar (Check))
+      // Fernanda (BB) checks (button Passar (Check)) -> auto-advances directly to Flop
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
       await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page2.locator('.action-btn-check').click();
-
-      // Bets equalized!
-      // Guest sees contextual wait message and NO admin controls
-      await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
-      await expect(page2.locator('.host-street-controls')).toHaveCount(0);
-
-      // Host sees HostStreetControls with no redundant bottom dock message
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-      const hostControls = page.locator('.host-street-controls');
-      await expect(hostControls).toBeVisible();
-      const flopBtn = hostControls.locator('.host-advance-btn');
-      await expect(flopBtn).toHaveText('Iniciar Flop ♠');
-
-      // Verify touch target size
-      const box = await flopBtn.boundingBox();
-      expect(box?.height).toBeGreaterThanOrEqual(48);
-
-      // Host clicks Iniciar Flop -> confirmation modal opens
-      await flopBtn.click();
-      const flopModal = page.locator('dialog[open]');
-      await expect(flopModal).toBeVisible();
-      await expect(flopModal.locator('h2')).toHaveText('Iniciar Flop?');
-      await expect(flopModal.locator('p')).toHaveText(
-        'Confirme que as três cartas do flop já foram colocadas na mesa.',
-      );
-
-      // Cancel confirmation -> modal closes, street is still preflop
-      await flopModal.getByRole('button', { name: 'Cancelar' }).click();
-      await expect(flopModal).not.toBeVisible();
-      await expect(page.getByText('PRÉ-FLOP', { exact: true })).toBeVisible();
-
-      // Confirm Flop
-      await flopBtn.click();
-      await flopModal.getByRole('button', { name: 'Confirmar Flop' }).click();
 
       // --- FLOP ---
       await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
       await expect(page2.getByText('FLOP', { exact: true })).toBeVisible();
       await expect(page.locator('.host-street-controls')).toHaveCount(0);
+      await expect(page2.locator('.host-street-controls')).toHaveCount(0);
 
       // Heads-up postflop: Fernanda (BB) acts first -> checks (nobody bet yet -> button is "Apostar")
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
@@ -961,70 +897,32 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page2.locator('.action-btn-raise')).toHaveText('Apostar');
       await page2.locator('.action-btn-check').click();
 
-      // Bruno (SB) acts -> checks
+      // Bruno (SB) acts -> checks -> auto-advances directly to Turn
       await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
       await expect(page.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page.locator('.action-btn-check').click();
-
-      // Flop bets equalized!
-      await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-      await expect(hostControls).toBeVisible();
-      const turnBtn = hostControls.locator('.host-advance-btn');
-      await expect(turnBtn).toHaveText('Iniciar Turn ♠');
-
-      // Host confirms Turn
-      await turnBtn.click();
-      const turnModal = page.locator('dialog[open]');
-      await expect(turnModal.locator('h2')).toHaveText('Iniciar Turn?');
-      await expect(turnModal.locator('p')).toHaveText(
-        'Confirme que a carta do turn (quarta carta) já foi colocada na mesa.',
-      );
-      await turnModal.getByRole('button', { name: 'Confirmar Turn' }).click();
 
       // --- TURN ---
       await expect(page.getByText('TURN', { exact: true })).toBeVisible();
       await expect(page2.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Fernanda checks, Bruno checks
+      // Fernanda checks, Bruno checks -> auto-advances directly to River
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
-
-      // Turn bets equalized!
-      await expect(page2.getByText('Aguardando o anfitrião iniciar o River.')).toBeVisible();
-      const riverBtn = hostControls.locator('.host-advance-btn');
-      await expect(riverBtn).toHaveText('Iniciar River ♠');
-
-      // Host confirms River
-      await riverBtn.click();
-      const riverModal = page.locator('dialog[open]');
-      await expect(riverModal.locator('h2')).toHaveText('Iniciar River?');
-      await expect(riverModal.locator('p')).toHaveText(
-        'Confirme que a carta do river (quinta carta) já foi colocada na mesa.',
-      );
-      await riverModal.getByRole('button', { name: 'Confirmar River' }).click();
 
       // --- RIVER ---
       await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
       await expect(page2.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // Fernanda checks, Bruno checks
+      // Fernanda checks, Bruno checks -> auto-advances directly to Showdown
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
-
-      // River bets equalized!
-      await expect(page2.getByText('Rodada de apostas encerrada. Aguardando Showdown.')).toBeVisible();
-      const showdownBtn = hostControls.locator('.host-advance-btn');
-      await expect(showdownBtn).toHaveText('Ir para Showdown ♠');
-
-      // River -> Showdown requires no community card confirmation: advances directly!
-      await showdownBtn.click();
 
       // --- SHOWDOWN ---
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
       await expect(page2.getByText('SHOWDOWN', { exact: true })).toBeVisible();
 
-      // In showdown, street controls are no longer shown
+      // In showdown, street controls are not shown
       await expect(page.locator('.host-street-controls')).toHaveCount(0);
     } finally {
       await guestContext.close();
@@ -1129,26 +1027,18 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       // Verify active table on host page
       await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
 
-      // Preflop: Host (SB) calls 20, Guest (BB) checks
+      // Preflop: Host (SB) calls 20, Guest (BB) checks -> auto-advances to flop
       await send(adminSocket, { type: 'game-action', action: 'call' });
       await send(guestSocket, { type: 'game-action', action: 'check' });
-      // Advance to flop
-      await send(adminSocket, { type: 'advance-street' });
-      // Flop: Guest acts first, then Host acts
+      // Flop: Guest acts first, then Host acts -> auto-advances to turn
       await send(guestSocket, { type: 'game-action', action: 'check' });
       await send(adminSocket, { type: 'game-action', action: 'check' });
-      // Advance to turn
-      await send(adminSocket, { type: 'advance-street' });
-      // Turn: Guest acts first, then Host acts
+      // Turn: Guest acts first, then Host acts -> auto-advances to river
       await send(guestSocket, { type: 'game-action', action: 'check' });
       await send(adminSocket, { type: 'game-action', action: 'check' });
-      // Advance to river
-      await send(adminSocket, { type: 'advance-street' });
-      // River: Guest acts first, then Host acts
+      // River: Guest acts first, then Host acts -> auto-advances to showdown
       await send(guestSocket, { type: 'game-action', action: 'check' });
       await send(adminSocket, { type: 'game-action', action: 'check' });
-      // Advance to showdown
-      await send(adminSocket, { type: 'advance-street' });
 
       // Verify SHOWDOWN on page
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
@@ -1247,50 +1137,34 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page.getByLabel('Mesa de jogo ativa')).toBeVisible();
       await expect(page2.getByLabel('Mesa de jogo ativa')).toBeVisible();
 
-      // --- Preflop: Alice (SB) calls, Bob (BB) checks ---
+      // --- Preflop: Alice (SB) calls, Bob (BB) checks -> auto Flop ---
       await page.locator('.action-btn-call').click();
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
 
-      // Advance to Flop
-      const flopBtn = page.locator('.host-street-controls .host-advance-btn');
-      await flopBtn.click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
       await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
 
-      // Flop: Bob checks, Alice checks
+      // Flop: Bob checks, Alice checks -> auto Turn
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
       await page.locator('.action-btn-check').click();
 
-      // Advance to Turn
-      const turnBtn = page.locator('.host-street-controls .host-advance-btn');
-      await turnBtn.click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
       await expect(page.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Turn: Bob checks, Alice checks
+      // Turn: Bob checks, Alice checks -> auto River
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
       await page.locator('.action-btn-check').click();
 
-      // Advance to River
-      const riverBtn = page.locator('.host-street-controls .host-advance-btn');
-      await riverBtn.click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
       await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // River: Bob checks, Alice checks
+      // River: Bob checks, Alice checks -> auto Showdown
       await expect(page2.getByText('Sua vez', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.getByText('Sua vez', { exact: true })).toBeVisible();
       await page.locator('.action-btn-check').click();
-
-      // Advance to Showdown
-      const showdownBtn = page.locator('.host-street-controls .host-advance-btn');
-      await showdownBtn.click();
 
       // --- SHOWDOWN STATE ---
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
@@ -1490,14 +1364,12 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(startBtn).toBeVisible();
       await startBtn.click();
 
-      // Preflop: call, check
+      // Preflop: call, check -> auto advances through streets
       await page.locator('.action-btn-call').click();
       await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page2.locator('.action-btn-check').click();
 
-      // Advance through streets
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
 
       // On Flop: nobody has bet yet -> button is "Apostar" and check is "Passar (Check)"
       await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
@@ -1505,18 +1377,15 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
 
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
 
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
 
-      // Showdown
-      await page.locator('.host-street-controls .host-advance-btn').click();
+      // Auto Showdown
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
 
       // Enable Tie mode via compact toggle button with aria-pressed
@@ -1768,35 +1637,23 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await raiseCtrl1.locator('.raise-input').fill('800');
       await raiseCtrl1.locator('.raise-btn-confirm').click();
 
-      // Eduardo (BB) calls 800
+      // Eduardo (BB) calls 800 -> preflop completed, auto-advances to Flop
       await page3.locator('.action-btn-call').click();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
 
-      // Preflop round completed! Host advances street to Flop
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
-
-      // Daniela checks, Eduardo checks
+      // Daniela checks, Eduardo checks -> auto Turn
       await page2.locator('.action-btn-check').click();
       await page3.locator('.action-btn-check').click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Host advances to Turn
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
-
-      // Daniela checks, Eduardo checks
+      // Daniela checks, Eduardo checks -> auto River
       await page2.locator('.action-btn-check').click();
       await page3.locator('.action-btn-check').click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // Host advances to River
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
-
-      // Daniela checks, Eduardo checks
+      // Daniela checks, Eduardo checks -> auto Showdown
       await page2.locator('.action-btn-check').click();
       await page3.locator('.action-btn-check').click();
-
-      // Host advances to Showdown
-      await page.locator('.host-street-controls .host-advance-btn').click();
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
 
       // Settle Hand 1: Daniela wins 1600 chips
@@ -1832,33 +1689,24 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await eduardoCallBtn.click();
       await page3.locator('dialog[open]').getByRole('button', { name: 'Confirmar All-in' }).click();
 
-      // Action is on Carlos (BB, stack 980): calls 500
+      // Action is on Carlos (BB, stack 980): calls 500 -> preflop completed, auto-advances to Flop
       await expect(page.locator('.action-btn-call')).toBeVisible();
       await page.locator('.action-btn-call').click();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
 
-      // Preflop round completed!
-      // Host advances through streets to Showdown:
-      // Flop:
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
-      // Eduardo is all-in, so action is between Carlos and Daniela
+      // Flop: Eduardo is all-in, so action is between Carlos and Daniela -> auto Turn
       await page.locator('.action-btn-check').click();
       await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Turn:
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
+      // Turn: -> auto River
       await page.locator('.action-btn-check').click();
       await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // River:
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
+      // River: -> auto Showdown
       await page.locator('.action-btn-check').click();
       await page2.locator('.action-btn-check').click();
-
-      // Showdown:
-      await page.locator('.host-street-controls .host-advance-btn').click();
       await expect(page.getByText('SHOWDOWN', { exact: true })).toBeVisible();
 
       // Now verify UI with real Main Pot and Side Pot:
@@ -2100,73 +1948,32 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       // Host (SB) calls BB (completes to 20)
       await callBtn.click();
 
-      // Guest (BB) checks
+      // Guest (BB) checks -> auto advances to Flop without HostStreetControls!
       await expect(page2.locator('.action-btn-check')).toHaveText('Passar (Check)');
       await page2.locator('.action-btn-check').click();
-
-      // Preflop bets equalized!
-      // Host has HostStreetControls visible, NO redundant dock message!
-      await expect(page.locator('.host-street-controls')).toBeVisible();
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-
-      const hostControlsRect = await page.locator('.host-street-controls').evaluate((el: HTMLElement) => {
-        const r = el.getBoundingClientRect();
-        return { left: r.left, right: r.right };
-      });
-      expect(hostControlsRect.left).toBeGreaterThanOrEqual(0);
-      expect(hostControlsRect.right).toBeLessThanOrEqual(320);
-
-      // Guest sees informative wait message and NO administrative controls
-      await expect(page2.getByText('Aguardando o anfitrião iniciar o Flop.')).toBeVisible();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
       await expect(page2.locator('.host-street-controls')).toHaveCount(0);
 
-      // Host confirms Flop
-      await page.locator('.host-advance-btn').click();
-      const flopModal = page.locator('dialog[open]');
-      await expect(flopModal).toBeVisible();
-      const flopModalRect = await flopModal.evaluate((el: HTMLElement) => {
-        const r = el.getBoundingClientRect();
-        return { left: r.left, right: r.right };
-      });
-      expect(flopModalRect.left).toBeGreaterThanOrEqual(0);
-      expect(flopModalRect.right).toBeLessThanOrEqual(320);
-      await flopModal.getByRole('button', { name: 'Confirmar Flop' }).click();
-
-      // Flop: Guest checks, Host checks
+      // Flop: Guest checks, Host checks -> auto Turn
       await expect(page2.locator('.action-btn-check')).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.locator('.action-btn-check')).toBeVisible();
       await page.locator('.action-btn-check').click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Flop bets equalized: Host has NO redundant dock message, Guest has wait message
-      await expect(page.locator('.host-street-controls')).toBeVisible();
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-      await expect(page2.getByText('Aguardando o anfitrião iniciar o Turn.')).toBeVisible();
-
-      // Advance Turn
-      await page.locator('.host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
-
-      // Turn: Guest checks, Host checks
+      // Turn: Guest checks, Host checks -> auto River
       await expect(page2.locator('.action-btn-check')).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.locator('.action-btn-check')).toBeVisible();
       await page.locator('.action-btn-check').click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // Advance River
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-      await page.locator('.host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
-
-      // River: Guest checks, Host checks
+      // River: Guest checks, Host checks -> auto Showdown
       await expect(page2.locator('.action-btn-check')).toBeVisible();
       await page2.locator('.action-btn-check').click();
       await expect(page.locator('.action-btn-check')).toBeVisible();
       await page.locator('.action-btn-check').click();
-
-      // River bets equalized: Advance to Showdown
-      await expect(page.locator('.future-action-dock')).toHaveCount(0);
-      await page.locator('.host-advance-btn').click();
 
       // --- SHOWDOWN ---
       // Host has HostSettlementControls visible, NO redundant dock message!
@@ -2330,37 +2137,24 @@ test.describe('Active Mobile Table Interface (Etapa 4A)', () => {
       await expect(page.locator('.active-table')).toBeVisible();
       await expect(page2.locator('.active-table')).toBeVisible();
 
-      // Preflop betting: Host calls, Guest checks
+      // Preflop betting: Host calls, Guest checks -> auto Flop
       await page.locator('.action-btn-call').click();
       await page2.locator('.action-btn-check').click();
+      await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
 
-      // Advance Flop
-      await expect(page.locator('.host-street-controls')).toBeVisible();
-      await page.locator('.host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
-
-      // Flop checks
+      // Flop checks -> auto Turn
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
+      await expect(page.getByText('TURN', { exact: true })).toBeVisible();
 
-      // Advance Turn
-      await page.locator('.host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
-
-      // Turn checks
+      // Turn checks -> auto River
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
+      await expect(page.getByText('RIVER', { exact: true })).toBeVisible();
 
-      // Advance River
-      await page.locator('.host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
-
-      // River checks
+      // River checks -> auto Showdown
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
-
-      // Advance to Showdown
-      await page.locator('.host-advance-btn').click();
 
       // Showdown: Host selects Juliana as winner
       await expect(page.locator('.host-settlement-controls')).toBeVisible();

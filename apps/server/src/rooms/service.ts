@@ -4,6 +4,7 @@ import { EngineError, startNextHand, type HandFlowState } from '@poker-table/eng
 import { Store } from '../persistence/database.js';
 import { RoomError } from '../errors.js';
 import { initializeHand, publicGame } from '../game/initial-hand.js';
+import { resolvePhysicalProgression } from '../game/physical-hand.js';
 import { advanceVirtualNextHand, resolveVirtualProgression, startVirtualGame } from '../game/virtual-hand.js';
 import { decodeGame, encodeGame, encodeHand, type StoredGame } from '../persistence/hand.js';
 import { applyActionAndPreActions, normalizePreActions, removePlayerPreAction, validateSetPreAction } from '../game/pre-actions.js';
@@ -346,7 +347,7 @@ export class RoomService {
           const nextGame = withUpdatedActiveGame(stored, next, nextPreActions, currentTracker, true);
           const resolvedGame = config.deckMode === 'virtual'
             ? resolveVirtualProgression(nextGame as Extract<StoredGame, { version: 3; status: 'hand-active' }>)
-            : nextGame;
+            : resolvePhysicalProgression(nextGame as Extract<StoredGame, { status: 'hand-active' }>);
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(resolvedGame, config, players), c.roomId);
           break;
         }
@@ -452,7 +453,7 @@ export class RoomService {
                 stored.settlement,
                 nextTracker,
               )
-            : {
+            : resolvePhysicalProgression({
                 version: 3,
                 status: 'hand-active',
                 hand: nextHandState,
@@ -461,7 +462,7 @@ export class RoomService {
                 previousSettlement: stored.settlement,
                 admittedPlayerIds: nextAdmittedIds,
                 blindsTracker: nextTracker,
-              };
+              });
           this.store.db.prepare('UPDATE rooms SET game=? WHERE id=?').run(encodeGame(nextActiveGame, config, players), c.roomId);
           break;
         }

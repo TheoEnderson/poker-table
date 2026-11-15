@@ -157,8 +157,16 @@ export function evaluateFiveCards(cards: readonly Card[]): DetailedHandEvaluatio
 
 export function evaluateBestHand(holeCards: readonly [Card, Card], board: readonly Card[]): DetailedHandEvaluation {
   const pool = [...holeCards, ...board];
+  if (pool.length === 2) {
+    const ordered = [...pool].sort((left, right) => RANK_VALUES[right.rank] - RANK_VALUES[left.rank]);
+    const values = ordered.map(card => RANK_VALUES[card.rank]);
+    if (values[0] === values[1]) {
+      return makeEvaluation('pair', [values[0]!], ordered);
+    }
+    return makeEvaluation('high_card', values, ordered);
+  }
   if (pool.length < 5 || pool.length > 7) {
-    throw new Error(`Expected between 5 and 7 cards to evaluate best hand, got ${pool.length}.`);
+    throw new Error(`Expected 2 or between 5 and 7 cards to evaluate best hand, got ${pool.length}.`);
   }
   if (pool.length === 5) {
     return evaluateFiveCards(pool);

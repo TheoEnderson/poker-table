@@ -14,14 +14,10 @@ describe('Next Hand, Elimination and Game Completion Multiplayer (Etapa 3C.2)', 
     // Dealer: Host (seat 1), SB: P1 (seat 2), BB: P2 (seat 3)
     expect(g.hand().dealerSeat).toBe(1);
 
-    await g.finishRound(); // preflop
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // preflop -> flop
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     // Host awards pot (60) to P1
     const settled1 = await g.settle([{ potId: 'main', winners: [p1] }]);
@@ -57,14 +53,10 @@ describe('Next Hand, Elimination and Game Completion Multiplayer (Etapa 3C.2)', 
     // Play Hand 2:
     // First to act preflop: P1 (seat 2, clockwise after BB seat 1)
     expect(hand2.currentActorId).toBe(p1);
-    await g.finishRound(); // preflop check/calls
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // preflop -> flop
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     // Pot is 60: Host BB (20) + P1 call (20) + P2 SB call (20)
     // Settle Hand 2: award pot to Host
@@ -116,13 +108,9 @@ describe('Next Hand, Elimination and Game Completion Multiplayer (Etapa 3C.2)', 
     await g.act('call');
 
     // Flop, turn, river
-    await g.advance();
-    await g.finishRound();
-    await g.advance();
-    await g.finishRound();
-    await g.advance();
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     // Main pot: 50 * 3 = 150.
     // Host awards main pot to Host
@@ -198,13 +186,9 @@ describe('Next Hand, Elimination and Game Completion Multiplayer (Etapa 3C.2)', 
 
     // Advance to showdown and settle
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
     await g.finishRound();
-    await g.advance();
 
     await g.settle([{ potId: 'main', winners: [g.admissions[0].credentials.playerId] }]);
     expect(g.state().game?.status).toBe('hand-settled');
@@ -227,13 +211,9 @@ describe('Next Hand, Elimination and Game Completion Multiplayer (Etapa 3C.2)', 
     await g.act('call');
     await g.act('call');
 
-    await g.advance();
-    await g.finishRound();
-    await g.advance();
-    await g.finishRound();
-    await g.advance();
-    await g.finishRound();
-    await g.advance();
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     await g.settle([{ potId: 'main', winners: [host] }]);
     await g.nextHand();

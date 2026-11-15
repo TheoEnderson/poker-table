@@ -6,14 +6,10 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
   const g = useLanGame();
 
   async function playShowdownHand(winnerId: string) {
-    await g.finishRound(); // preflop
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // -> flop
+    await g.finishRound(); // -> turn
+    await g.finishRound(); // -> river
+    await g.finishRound(); // -> showdown
     expect(g.state().game?.hand.status).toBe('showdown');
     await g.settle([{ potId: 'main', winners: [winnerId] }]);
     await g.nextHand();
@@ -28,8 +24,7 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
   }
 
   async function playFlopFoldHand() {
-    await g.finishRound(); // preflop
-    await g.advance(); // flop
+    await g.finishRound(); // preflop -> flop
     await g.act('raise', 20); // first actor bets
     while (g.hand().currentActorId !== null && g.state().game?.hand.status === 'in_progress') {
       await g.act('fold');
@@ -118,14 +113,10 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
     await g.act('call'); // P2 calls 60
     await g.act('call'); // Host calls 60
 
-    // Advance to showdown
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    // Preflop já concluiu e avançou automaticamente ao flop
+    await g.finishRound(); // flop -> turn
+    await g.finishRound(); // turn -> river
+    await g.finishRound(); // river -> showdown
 
     // Host wins main pot
     await g.settle([{ potId: 'main', winners: [host] }]);
@@ -149,14 +140,10 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
       g.assertConserved();
 
       // Check down to river showdown
-      await g.finishRound(); // preflop
-      await g.advance(); // flop
-      await g.finishRound();
-      await g.advance(); // turn
-      await g.finishRound();
-      await g.advance(); // river
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // -> flop
+      await g.finishRound(); // -> turn
+      await g.finishRound(); // -> river
+      await g.finishRound(); // -> showdown
 
       // Alternate winner between Host and P2
       const huWinner = huHand % 2 === 0 ? p2 : host;
@@ -204,21 +191,16 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
     for (let h = 1; h <= 5; h++) {
       if (h === 4) await refreshSockets();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // showdown
       await g.settle([{ potId: 'main', winners: [h % 2 === 0 ? p1 : host] }]);
       await g.nextHand();
     }
 
-    // Now in Hand 6: play preflop and advance to Flop
+    // Now in Hand 6: play preflop and auto-advance to Flop
     expect(decodeGame(g.raw(), g.state().config, g.state().players).handNumber).toBe(6);
-    await g.finishRound(); // preflop calls
-    await g.advance(); // street flop
+    await g.finishRound(); // preflop calls -> flop
     expect(g.hand().street).toBe('flop');
 
     // First player acts on flop: raises 20
@@ -245,12 +227,9 @@ describe('Prolonged Sessions and Lifecycle Stability (Etapa 3D)', () => {
     expect(storedRecovered.tableBudget).toBe(3000);
 
     // Continue the hand seamlessly after restart
-    await g.finishRound(); // remaining players call/fold
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // -> turn
+    await g.finishRound(); // -> river
+    await g.finishRound(); // -> showdown
 
     await g.settle([{ potId: 'main', winners: [host] }]);
     const hand7State = await g.nextHand();

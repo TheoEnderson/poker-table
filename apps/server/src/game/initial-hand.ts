@@ -1,6 +1,7 @@
 import { buildPots, canAdvanceStreet, EngineError, getAllowedActions, startHandFlow, type HandFlowState } from '@poker-table/engine';
 import { configSchema, gameStateSchema, handSnapshotSchema, computeBlindsState, type GameState, type RoomConfig, type RoomState } from '@poker-table/protocol';
 import { RoomError } from '../errors.js';
+import { evaluateBestHand, toPublicEvaluation } from './evaluator.js';
 import { publicSettlement } from './settlement.js';
 import type { StoredGame } from '../persistence/hand.js';
 import type { VirtualHandState } from '../persistence/hand-schema.js';
@@ -51,7 +52,19 @@ export function publicHand(hand: HandFlowState, options?: PublicHandProjectionOp
       const isShowdownFinalist = revealShowdown && !p.folded;
       const canSeeHoleCards = isShowdownFinalist || (viewerId !== undefined && p.id === viewerId);
       const playerHoleCards = canSeeHoleCards ? virtual.holeCards[p.id] : undefined;
-      const evaluation = isShowdownFinalist ? virtual.evaluations?.[p.id] : undefined;
+      let evaluation = isShowdownFinalist ? virtual.evaluations?.[p.id] : undefined;
+      if (
+        evaluation === undefined
+        && !revealShowdown
+        && hand.status === 'in_progress'
+        && viewerId !== undefined
+        && p.id === viewerId
+        && !p.folded
+        && playerHoleCards
+        && (virtual.board.length === 0 || (virtual.board.length >= 3 && virtual.board.length <= 5))
+      ) {
+        evaluation = toPublicEvaluation(evaluateBestHand(playerHoleCards, virtual.board));
+      }
       return {
         id: p.id, seat: p.seat, chips: p.chips, roundCommitted: p.roundCommitted,
         totalCommitted: p.totalCommitted, folded: p.folded, isAllIn: p.isAllIn,
