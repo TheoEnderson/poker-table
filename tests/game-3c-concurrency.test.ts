@@ -13,14 +13,10 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
       const p1 = g.admissions[1].credentials.playerId;
 
       // Advance to showdown
-      await g.finishRound();
-      await g.advance(); // flop
-      await g.finishRound();
-      await g.advance(); // turn
-      await g.finishRound();
-      await g.advance(); // river
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // -> flop
+      await g.finishRound(); // -> turn
+      await g.finishRound(); // -> river
+      await g.finishRound(); // -> showdown
 
       const second = await g.connect(g.host.credentials);
       const input = await g.envelope({ type: 'settle-hand', decisions: [{ potId: 'main', winners: [p1] }] });
@@ -55,13 +51,9 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
       const p1 = g.admissions[1].credentials.playerId;
 
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // showdown
 
       const second = await g.connect(g.host.credentials);
       const input = await g.envelope({ type: 'settle-hand', decisions: [{ potId: 'main', winners: [p1] }] });
@@ -96,13 +88,9 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
       const p1 = g.admissions[1].credentials.playerId;
 
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // showdown
 
       await g.settle([{ potId: 'main', winners: [p1] }]);
       expect(g.state().game?.status).toBe('hand-settled');
@@ -143,13 +131,9 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
       const p1 = g.admissions[1].credentials.playerId;
 
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // showdown
 
       await g.settle([{ potId: 'main', winners: [p1] }]);
 
@@ -191,13 +175,9 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
         const p1 = g.admissions[1].credentials.playerId;
 
         await g.finishRound();
-        await g.advance();
         await g.finishRound();
-        await g.advance();
         await g.finishRound();
-        await g.advance();
-        await g.finishRound();
-        await g.advance(); // showdown
+        await g.finishRound(); // showdown
 
         const before = g.state();
         const rawBefore = g.raw();
@@ -251,13 +231,9 @@ describe('Concurrency and Rollback for Settlement and Next Hand (Etapa 3C)', () 
         const p1 = g.admissions[1].credentials.playerId;
 
         await g.finishRound();
-        await g.advance();
         await g.finishRound();
-        await g.advance();
         await g.finishRound();
-        await g.advance();
-        await g.finishRound();
-        await g.advance(); // showdown
+        await g.finishRound(); // showdown
 
         await g.settle([{ potId: 'main', winners: [p1] }]);
 

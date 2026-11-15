@@ -335,14 +335,8 @@ test.describe('Graphical Poker Chips and Pot Visual Experience (Etapa Fichas GrÃ
         g2Socket.emit('room:command', { type: 'game-action', action: 'check', commandId: randomUUID(), expectedRevision: s4.revision }, reply => reply.ok ? res() : rej(new Error(reply.error.message)))
       );
 
-      // All 3 players called 20 each. Total pot = 60.
+      // All 3 players called 20 each. Total pot = 60, and preflop auto-advances to Flop!
       await expect(page.locator('.table-pot .pot-value')).toContainText('60');
-
-      // Host advances street to Flop
-      const s5 = await getSyncState();
-      await new Promise<void>((res, rej) =>
-        admin.emit('room:command', { type: 'advance-street', commandId: randomUUID(), expectedRevision: s5.revision }, reply => reply.ok ? res() : rej(new Error(reply.error.message)))
-      );
 
       // On Flop:
       // 1. All player bet badges on the felt are cleared (0 active bets)

@@ -39,19 +39,18 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
   // 2. Liquidação de showdown com vencedor único
   it('liquida showdown com vencedor único informado pelo anfitrião', async () => {
     await g.setup(2);
-    // Preflop: SB calls 20, BB checks 20
+    // Preflop: SB calls 20, BB checks 20 -> avança automaticamente ao Flop
     await g.act('call');
     await g.act('check');
-    await g.advance(); // Flop
+    // Flop -> Turn
     await g.act('check');
     await g.act('check');
-    await g.advance(); // Turn
+    // Turn -> River
     await g.act('check');
     await g.act('check');
-    await g.advance(); // River
+    // River -> Showdown
     await g.act('check');
     await g.act('check');
-    await g.advance(); // Showdown
 
     const showdownState = g.state();
     expect(showdownState.game?.hand.status).toBe('showdown');
@@ -76,16 +75,12 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
     await g.setup(2);
     await g.act('call');
     await g.act('check');
-    await g.advance(); // Flop
     await g.act('check');
     await g.act('check');
-    await g.advance(); // Turn
     await g.act('check');
     await g.act('check');
-    await g.advance(); // River
     await g.act('check');
     await g.act('check');
-    await g.advance(); // Showdown
 
     const p0Id = g.admissions[0].credentials.playerId;
     const p1Id = g.admissions[1].credentials.playerId;
@@ -117,8 +112,7 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
     await g.act('raise', 800);
     await g.act('fold');
     await g.act('call');
-    await g.advance(); // Flop
-    await g.act('fold'); // P2 folds no flop -> P0 vence a Mão 1
+    await g.act('fold'); // Flop automático -> P2 folds -> P0 vence a Mão 1
     await g.settle([]); // Liquida mão 1
     await g.nextHand(); // Inicia Mão 2
 
@@ -130,20 +124,16 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
     await g.act('raise', 500);
     // P2 vai All-in de 190 restantes (total 200)
     await g.act('all-in');
-    // P0 calls 500
+    // P0 calls 500 -> avança automaticamente ao Flop
     await g.act('call');
 
-    // Avança streets até Showdown
-    await g.advance(); // Flop
+    // Streets seguintes até Showdown
     await g.act('check');
+    await g.act('check'); // -> Turn
     await g.act('check');
-    await g.advance(); // Turn
+    await g.act('check'); // -> River
     await g.act('check');
-    await g.act('check');
-    await g.advance(); // River
-    await g.act('check');
-    await g.act('check');
-    await g.advance(); // Showdown
+    await g.act('check'); // -> Showdown
 
     const state = g.state();
     expect(state.game?.hand.status).toBe('showdown');
@@ -242,7 +232,6 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
     await g.act('raise', 800);
     await g.act('fold');
     await g.act('call');
-    await g.advance();
     await g.act('fold');
     await g.settle([]);
     await g.nextHand(); // Inicia Mão 2
@@ -252,11 +241,10 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
     await g.act('raise', 500);
     // P2 All-in 200
     await g.act('all-in');
-    // P0 calls 500
+    // P0 calls 500 -> Flop automático
     await g.act('call');
 
     // Flop: P0 aposta 100
-    await g.advance();
     await g.act('raise', 100);
     // P1 dá FOLD! P1 agora desistiu
     await g.act('fold');
@@ -322,16 +310,12 @@ describe('Etapa 4D: Liquidação de Mãos, Distribuição de Potes e Próximas M
 
     await g.act('call');
     await g.act('check');
-    await g.advance();
     await g.act('check');
     await g.act('check');
-    await g.advance();
     await g.act('check');
     await g.act('check');
-    await g.advance();
     await g.act('check');
     await g.act('check');
-    await g.advance();
 
     const p0Id = g.admissions[0].credentials.playerId;
     const settled = await g.settle([{ potId: 'main', winners: [p0Id] }]);

@@ -493,16 +493,17 @@ test.describe('Pre-Actions (Ações Antecipadas)', () => {
       await expect(anaView.page.locator('.action-dock-active')).toBeVisible();
       await anaView.page.locator('.action-dock-active .action-btn-call').click();
 
-      // Beatriz executa Call 40 automaticamente ao receber a vez, concluindo a rodada (pote 180)
+      // Beatriz executa Call 40 automaticamente ao receber a vez, concluindo a rodada e avançando ao Flop (pote 180)
       await expect(biaView.page.locator('.pot-total-badge')).toContainText('180');
       await expect(biaView.page.locator('[data-testid="pre-action-indicator"]')).toHaveCount(0);
-      await expect(biaView.page.locator('.action-dock-active')).toHaveCount(0);
+      await expect(biaView.page.getByText('FLOP', { exact: true })).toBeVisible();
 
       const finalState = await setup.hostClient.sync();
       expect(finalState.game?.status).toBe('hand-active');
       if (finalState.game?.status === 'hand-active') {
         expect(finalState.game.hand.pot).toBe(180);
-        expect(finalState.game.hand.canAdvanceStreet).toBe(true);
+        expect(finalState.game.hand.street).toBe('flop');
+        expect(finalState.game.hand.canAdvanceStreet).toBe(false);
         const bia = finalState.game.hand.players.find(p => p.id === setup.guests[1].credentials.playerId)!;
         expect(bia.chips).toBe(940);
       }

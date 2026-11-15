@@ -128,14 +128,11 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
       // Restore to 390px for street progression
       await page.setViewportSize({ width: 390, height: 844 });
 
-      // 5. Street progression: Preflop -> Flop
+      // 5. Automatic street progression: Preflop -> Flop
       await page.locator('.action-btn-call').click();
       await page2.locator('.action-btn-check').click();
 
-      // Host advances to Flop
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
-
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
       await expect(page.locator('.community-card-slot.slot-revealed')).toHaveCount(3);
       await expect(page.locator('.community-card-slot.slot-hidden')).toHaveCount(2);
       await expect(page.locator('.community-cards-caption')).toContainText('Flop · 3 cartas na mesa física');
@@ -144,9 +141,6 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
 
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Turn' }).click();
-
       await expect(page.locator('.community-card-slot.slot-revealed')).toHaveCount(4);
       await expect(page.locator('.community-card-slot.slot-hidden')).toHaveCount(1);
       await expect(page.locator('.community-cards-caption')).toContainText('Turn · 4 cartas na mesa física');
@@ -154,9 +148,6 @@ test.describe('Virtual Poker Table Visual Experience (Etapa Mesa Virtual)', () =
       // Advance Turn -> River
       await page2.locator('.action-btn-check').click();
       await page.locator('.action-btn-check').click();
-
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar River' }).click();
 
       await expect(page.locator('.community-card-slot.slot-revealed')).toHaveCount(5);
       await expect(page.locator('.community-card-slot.slot-hidden')).toHaveCount(0);

@@ -114,19 +114,11 @@ test.describe('Action Visibility & Player Turn Indicators (Etapa UX)', () => {
       await expect(page2.locator('.my-call-needed-tag')).toHaveText('Para igualar: 40');
       await expect(page2.locator('.last-action-bar')).toContainText('Alice aumentou para 60 (+50)');
 
-      // 7. Bob calls (+40)
+      // 7. Bob calls (+40) -> concludes preflop and advances automatically to Flop
       await page2.locator('.action-btn-call').click();
-
-      // Street is complete!
-      // In Alice's view, Bob's card shows 'CALL +40'
-      await expect(bobCardOnAlice.locator('.tag-call')).toHaveText('CALL +40');
-      await expect(page.locator('.last-action-bar')).toContainText('Bob pagou 40');
-
-      // 8. Advance to Flop
-      await page.locator('.host-street-controls .host-advance-btn').click();
-      await page.locator('dialog[open]').getByRole('button', { name: 'Confirmar Flop' }).click();
       await expect(page.getByText('FLOP', { exact: true })).toBeVisible();
       await expect(page2.getByText('FLOP', { exact: true })).toBeVisible();
+      await expect(page.locator('.host-street-controls')).toHaveCount(0);
 
       // On Flop: Post-flop actions reset!
       // Bob is first to act post-flop (seat 2, out of position).

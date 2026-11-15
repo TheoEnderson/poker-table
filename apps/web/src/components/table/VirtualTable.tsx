@@ -17,10 +17,14 @@ export function VirtualTable({
   game,
   room,
   selfId,
+  cardsHidden,
+  onToggleCardsHidden,
 }: {
   game: GameState;
   room: RoomState;
   selfId?: string;
+  cardsHidden?: boolean;
+  onToggleCardsHidden?: () => void;
 }) {
   const { hand } = game;
   // Ordena os jogadores sentados por assento para ancoragem física
@@ -141,6 +145,8 @@ export function VirtualTable({
                   position={position}
                   isWaitingForNextHand={isWaitingForNextHand}
                   isEliminated={isEliminated}
+                  cardsHidden={isSelf ? cardsHidden : undefined}
+                  onToggleCardsHidden={isSelf ? onToggleCardsHidden : undefined}
                 />
               </div>
             );

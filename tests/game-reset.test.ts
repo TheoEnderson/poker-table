@@ -299,14 +299,10 @@ describe('Game Reset (Reiniciar Partida sem recriar sala)', () => {
     await g.setup(3);
     const p1 = g.admissions[1].credentials.playerId;
 
-    await g.finishRound(); // preflop
-    await g.advance(); // flop
-    await g.finishRound();
-    await g.advance(); // turn
-    await g.finishRound();
-    await g.advance(); // river
-    await g.finishRound();
-    await g.advance(); // showdown
+    await g.finishRound(); // -> flop
+    await g.finishRound(); // -> turn
+    await g.finishRound(); // -> river
+    await g.finishRound(); // -> showdown
 
     // Award pot to P1
     const settled = await g.settle([{ potId: 'main', winners: [p1] }]);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CommandInput, RoomState } from '@poker-table/protocol';
 import { ErrorNotice } from '../Layout';
 import { VirtualTable } from './VirtualTable';
@@ -26,11 +27,14 @@ export function ActiveTable({
   command: (input: CommandInput) => Promise<boolean>;
   pending: boolean;
 }) {
+  const [cardsHidden, setCardsHidden] = useState(false);
+
   const game = room.game;
   if (!game) return null;
 
   const me = room.players.find(p => p.id === selfId);
   const isHost = me?.isHost ?? false;
+  const handleToggleCardsHidden = () => setCardsHidden(prev => !prev);
 
   return (
     <div className="active-table" aria-label="Mesa de jogo ativa">
@@ -67,13 +71,25 @@ export function ActiveTable({
       {error && <ErrorNotice message={error} />}
 
       {/* 2. Mesa Virtual de Poker (Feltro, Pote Central, Cartas Comunitárias e Assentos) */}
-      <VirtualTable game={game} room={room} selfId={selfId} />
+      <VirtualTable
+        game={game}
+        room={room}
+        selfId={selfId}
+        cardsHidden={cardsHidden}
+        onToggleCardsHidden={handleToggleCardsHidden}
+      />
 
       {/* 4. Resumo de Premiações (se a mão foi liquidada ou partida encerrada) */}
       <SettlementBanner game={game} room={room} />
 
       {/* 5. Painel Pessoal do Jogador */}
-      <MyStatusPanel game={game} room={room} selfId={selfId} />
+      <MyStatusPanel
+        game={game}
+        room={room}
+        selfId={selfId}
+        cardsHidden={cardsHidden}
+        onToggleCardsHidden={handleToggleCardsHidden}
+      />
 
       {/* 6. Controles Administrativos de Street (Exclusivo do Anfitrião, Modo Físico) */}
       {room.config.deckMode !== 'virtual' && (

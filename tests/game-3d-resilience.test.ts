@@ -45,17 +45,13 @@ describe('Multiplayer LAN Resilience and Security Audit (Etapa 3D)', () => {
       // P2 has 10 chips and bigBlind is 20, so P2 is all-in from BB for 10 chips!
       expect(g.hand().players.find(p => p.id === g.admissions[2].credentials.playerId)!.isAllIn).toBe(true);
 
-      // Play through: Host calls 20, P1 calls 10 more (matches BB 20)
+      // Play through: Host calls 20, P1 calls 10 more (matches BB 20) -> flop
       await g.act('call');
       await g.act('call');
       // Advance flop, turn, river to showdown
-      await g.advance();
       await g.finishRound();
-      await g.advance();
       await g.finishRound();
-      await g.advance();
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // showdown
 
       // Main pot (disputed by all 3) is 30 (10 from each). Side pot between Host and P1 is 20 (10 from each).
       // Settle both pots awarding all to Host
@@ -115,14 +111,10 @@ describe('Multiplayer LAN Resilience and Security Audit (Etapa 3D)', () => {
       const p1 = g.admissions[1].credentials.playerId;
 
       // Play all streets to showdown
-      await g.finishRound();
-      await g.advance(); // flop
-      await g.finishRound();
-      await g.advance(); // turn
-      await g.finishRound();
-      await g.advance(); // river
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // -> flop
+      await g.finishRound(); // -> turn
+      await g.finishRound(); // -> river
+      await g.finishRound(); // -> showdown
 
       expect(g.state().game?.status).toBe('hand-active');
       expect(g.state().game?.hand.status).toBe('showdown');
@@ -399,14 +391,10 @@ describe('Multiplayer LAN Resilience and Security Audit (Etapa 3D)', () => {
       inspectSnapshot(synced, 'syncedRoomState');
 
       // 2. Play hand to showdown and settle
-      await g.finishRound();
-      await g.advance(); // flop
-      await g.finishRound();
-      await g.advance(); // turn
-      await g.finishRound();
-      await g.advance(); // river
-      await g.finishRound();
-      await g.advance(); // showdown
+      await g.finishRound(); // -> flop
+      await g.finishRound(); // -> turn
+      await g.finishRound(); // -> river
+      await g.finishRound(); // -> showdown
       const settled = await g.settle([{ potId: 'main', winners: [p1Creds.playerId] }]);
 
       // 3. Inspect settled RoomState and SettlementSnapshot
@@ -445,13 +433,13 @@ describe('Multiplayer LAN Resilience and Security Audit (Etapa 3D)', () => {
       await g.setup(2);
       const initialCommandsCount = g.app.store.db.prepare('SELECT COUNT(*) as count FROM commands WHERE room_id=?').get(g.roomId) as { count: number };
 
-      // Execute 3 poker actions
+      // Execute 2 poker actions (closing preflop and auto-advancing to flop)
       await g.act('call');
       await g.act('check');
-      await g.advance();
 
       const newCommandsCount = g.app.store.db.prepare('SELECT COUNT(*) as count FROM commands WHERE room_id=?').get(g.roomId) as { count: number };
-      expect(newCommandsCount.count).toBe(initialCommandsCount.count + 3);
+      expect(newCommandsCount.count).toBe(initialCommandsCount.count + 2);
+      expect(g.hand().street).toBe('flop');
     });
   });
 });

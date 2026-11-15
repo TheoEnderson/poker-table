@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import type { GameState, RoomState } from '@poker-table/protocol';
-import { PlayingCard } from './PlayingCard';
 import { ChipAmount } from '../common/ChipAmount';
 import { getCurrentStreetBet } from '../../utils/actions';
 
@@ -8,12 +6,15 @@ export function MyStatusPanel({
   game,
   room,
   selfId,
+  cardsHidden = false,
+  onToggleCardsHidden,
 }: {
   game: GameState;
   room: RoomState;
   selfId: string;
+  cardsHidden?: boolean;
+  onToggleCardsHidden?: () => void;
 }) {
-  const [cardsHidden, setCardsHidden] = useState(false);
   const meInRoom = room.players.find(p => p.id === selfId);
   const meInHand = game.hand.players.find(p => p.id === selfId);
 
@@ -44,6 +45,17 @@ export function MyStatusPanel({
   const currentActor = game.hand.currentActorId
     ? room.players.find(p => p.id === game.hand.currentActorId)
     : null;
+
+  const isVirtualRoom = game.hand.board !== undefined;
+  const isShowdown = isSettled && game.hand.status === 'showdown';
+  const showVirtualMeta =
+    isVirtualRoom &&
+    !isSpectator &&
+    !isWaitingForNextHand &&
+    !isFolded &&
+    !isEliminated &&
+    meInHand?.holeCards !== undefined &&
+    (game.status === 'hand-active' || isShowdown);
 
   return (
     <section
@@ -128,41 +140,30 @@ export function MyStatusPanel({
           </div>
         </div>
 
-        {meInHand?.holeCards && (
-          <div className="my-hole-cards-section" data-testid="my-hole-cards">
-            <div className="my-hole-cards-meta">
-              <span className="my-hole-cards-title">Suas cartas</span>
-              {meInHand.handEvaluation && (
+        {showVirtualMeta && (
+          <div className="my-virtual-hand-bar" data-testid="my-virtual-hand-bar">
+            <div className="my-virtual-hand-eval">
+              {meInHand?.handEvaluation && (!cardsHidden || isShowdown) ? (
                 <span className="hand-eval-pill" data-testid="my-hand-evaluation">
                   {meInHand.handEvaluation.label}
                 </span>
-              )}
+              ) : cardsHidden && !isShowdown ? (
+                <span className="my-hole-cards-hidden-hint" data-testid="my-hole-cards-hidden">
+                  Cartas ocultas
+                </span>
+              ) : null}
             </div>
-            <div className="my-hole-cards-row">
-              <div className="my-hole-cards-pair">
-                <PlayingCard
-                  card={cardsHidden ? undefined : meInHand.holeCards[0]}
-                  faceDown={cardsHidden}
-                  size="lg"
-                  testId="my-hole-card-0"
-                />
-                <PlayingCard
-                  card={cardsHidden ? undefined : meInHand.holeCards[1]}
-                  faceDown={cardsHidden}
-                  size="lg"
-                  testId="my-hole-card-1"
-                />
-              </div>
+            {game.status === 'hand-active' && onToggleCardsHidden && (
               <button
                 type="button"
                 className="hole-cards-toggle-btn"
                 aria-pressed={cardsHidden}
-                onClick={() => setCardsHidden(prev => !prev)}
+                onClick={onToggleCardsHidden}
                 data-testid="toggle-hole-cards"
               >
                 {cardsHidden ? 'Mostrar cartas' : 'Ocultar cartas'}
               </button>
-            </div>
+            )}
           </div>
         )}
       </div>

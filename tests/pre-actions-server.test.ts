@@ -36,9 +36,11 @@ describe('Server-authoritative Pre-Actions & Call <valor>', () => {
     }
 
     const hand = g.hand();
-    expect(hand.currentRound.status).toBe('completed');
+    expect(hand.street).toBe('flop');
+    expect(hand.currentRound.status).toBe('active');
     expect(hand.pot).toBe(180);
-    expect(hand.players[2].roundCommitted).toBe(60);
+    expect(hand.players[2].totalCommitted).toBe(60);
+    expect(hand.players[2].roundCommitted).toBe(0);
     expect(hand.players[2].chips).toBe(940);
     expect(hand.actions?.at(-1)).toMatchObject({
       playerId: p2Id,
@@ -158,7 +160,8 @@ describe('Server-authoritative Pre-Actions & Call <valor>', () => {
     expect(p2.isAllIn).toBe(true);
     expect(p2.totalCommitted).toBe(70);
     expect(hand.pot).toBe(670);
-    expect(hand.currentRound.status).toBe('completed');
+    expect(hand.street).toBe('flop');
+    expect(hand.currentRound.status).toBe('active');
     g.assertConserved();
   });
 

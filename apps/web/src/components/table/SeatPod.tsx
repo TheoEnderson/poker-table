@@ -18,6 +18,8 @@ export function SeatPod({
   position,
   isWaitingForNextHand = false,
   isEliminated = false,
+  cardsHidden = false,
+  onToggleCardsHidden,
 }: {
   player: GameState['hand']['players'][number];
   roomPlayer?: RoomState['players'][number];
@@ -30,6 +32,8 @@ export function SeatPod({
   position: SeatPosition;
   isWaitingForNextHand?: boolean;
   isEliminated?: boolean;
+  cardsHidden?: boolean;
+  onToggleCardsHidden?: () => void;
 }) {
   const isSettled = game.status === 'hand-settled' || game.status === 'game-complete';
   const settledPlayer = isSettled
@@ -96,8 +100,22 @@ export function SeatPod({
   const isVirtualRoom = game.hand.board !== undefined;
   const showVirtualReveal =
     isVirtualRoom && isSettled && game.hand.status === 'showdown' && !isFolded && player.holeCards !== undefined;
+  const showSelfVirtualCards =
+    isVirtualRoom &&
+    isSelf &&
+    !showVirtualReveal &&
+    game.status === 'hand-active' &&
+    !isWaitingForNextHand &&
+    !isFolded &&
+    player.holeCards !== undefined;
   const showVirtualBacks =
-    isVirtualRoom && !showVirtualReveal && game.status === 'hand-active' && !isWaitingForNextHand && !isFolded && (player.hasCards ?? true);
+    isVirtualRoom &&
+    !showVirtualReveal &&
+    !showSelfVirtualCards &&
+    game.status === 'hand-active' &&
+    !isWaitingForNextHand &&
+    !isFolded &&
+    (player.hasCards ?? true);
 
   const podClasses = [
     'player-card',
@@ -197,10 +215,43 @@ export function SeatPod({
       <article className={podClasses} aria-label={`Jogador ${playerName}, assento ${player.seat}`}>
         {/* Cartas de mão (virtuais ou simbólicas físicas) */}
         {showVirtualReveal && player.holeCards ? (
-          <div className="pod-hole-cards pod-hole-cards-virtual" data-testid={`seat-cards-${player.id}`}>
-            <PlayingCard card={player.holeCards[0]} size="xs" testId={`seat-card-${player.id}-0`} />
-            <PlayingCard card={player.holeCards[1]} size="xs" testId={`seat-card-${player.id}-1`} />
+          <div
+            className={`pod-hole-cards pod-hole-cards-virtual${isSelf ? ' pod-hole-cards-self' : ''}`}
+            data-testid={`seat-cards-${player.id}`}
+          >
+            <PlayingCard
+              card={player.holeCards[0]}
+              size={isSelf ? 'sm' : 'xs'}
+              testId={isSelf ? 'my-hole-card-0' : `seat-card-${player.id}-0`}
+            />
+            <PlayingCard
+              card={player.holeCards[1]}
+              size={isSelf ? 'sm' : 'xs'}
+              testId={isSelf ? 'my-hole-card-1' : `seat-card-${player.id}-1`}
+            />
           </div>
+        ) : showSelfVirtualCards && player.holeCards ? (
+          <button
+            type="button"
+            className="pod-hole-cards pod-hole-cards-virtual pod-hole-cards-self"
+            aria-pressed={cardsHidden}
+            aria-label={cardsHidden ? 'Mostrar suas cartas na mesa' : 'Ocultar suas cartas na mesa'}
+            onClick={onToggleCardsHidden}
+            data-testid="seat-self-hole-cards"
+          >
+            <PlayingCard
+              card={cardsHidden ? undefined : player.holeCards[0]}
+              faceDown={cardsHidden}
+              size="sm"
+              testId="my-hole-card-0"
+            />
+            <PlayingCard
+              card={cardsHidden ? undefined : player.holeCards[1]}
+              faceDown={cardsHidden}
+              size="sm"
+              testId="my-hole-card-1"
+            />
+          </button>
         ) : showVirtualBacks ? (
           <div className="pod-hole-cards pod-hole-cards-virtual" data-testid={`seat-backs-${player.id}`}>
             <PlayingCard faceDown size="xs" />

@@ -537,27 +537,21 @@ test.describe('Bet Controls & Mobile Ergonomics (Etapa Controles de Apostas)', (
       await sendCommand(admin, { type: 'select-seat', seat: 1 });
       await sendCommand(admin, { type: 'start-game' });
 
-      // Hand 1: Carlos raises to 920, Beatriz calls 920
+      // Hand 1: Carlos raises to 920, Beatriz calls 920 -> auto advances to Flop
       await sendCommand(admin, { type: 'game-action', action: 'raise', amount: 920 });
       await sendCommand(guestSocket, { type: 'game-action', action: 'call' });
 
-      // Flop: Beatriz checks, Carlos checks, then advance
-      await sendCommand(admin, { type: 'advance-street' });
+      // Flop: Beatriz checks, Carlos checks -> auto advances to Turn
       await sendCommand(guestSocket, { type: 'game-action', action: 'check' });
       await sendCommand(admin, { type: 'game-action', action: 'check' });
 
-      // Turn: Beatriz checks, Carlos checks, then advance
-      await sendCommand(admin, { type: 'advance-street' });
+      // Turn: Beatriz checks, Carlos checks -> auto advances to River
       await sendCommand(guestSocket, { type: 'game-action', action: 'check' });
       await sendCommand(admin, { type: 'game-action', action: 'check' });
 
-      // River: Beatriz checks, Carlos checks, then advance
-      await sendCommand(admin, { type: 'advance-street' });
+      // River: Beatriz checks, Carlos checks -> auto advances to Showdown
       await sendCommand(guestSocket, { type: 'game-action', action: 'check' });
       await sendCommand(admin, { type: 'game-action', action: 'check' });
-
-      // Advance to Showdown
-      await sendCommand(admin, { type: 'advance-street' });
 
       // Settle Hand 1: Carlos wins the pot
       await sendCommand(admin, {
@@ -573,11 +567,8 @@ test.describe('Bet Controls & Mobile Ergonomics (Etapa Controles de Apostas)', (
       // Carlos is BB (posts 20, committed: 20)
       // Beatriz calls 10 (now committed 20, chips left: 60!)
       await sendCommand(guestSocket, { type: 'game-action', action: 'call' });
-      // Carlos checks (committed 20)
+      // Carlos checks (committed 20) -> auto advances to Flop!
       await sendCommand(admin, { type: 'game-action', action: 'check' });
-
-      // Round complete -> Advance to Flop!
-      await sendCommand(admin, { type: 'advance-street' });
 
       // On Flop:
       // Current street is flop.

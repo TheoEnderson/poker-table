@@ -42,13 +42,13 @@ it('plays a complete hand over Socket.IO through every street and river showdown
   await g.setup(3);
   const observed = g.sockets.map(() => [] as number[]);
   g.sockets.forEach((socket, i) => socket.on('room:state', state => observed[i].push(state.revision)));
-  await g.act('call'); await g.act('call'); await g.act('check');
-  const preflop = g.hand();
-  expect(preflop.pot).toBe(60);
-  expect(preflop.currentRound.status).toBe('completed');
-  expect(await g.command(0, { type: 'game-action', action: 'call' })).toMatchObject({ error: { code: 'ROUND_NOT_ACTIVE' } });
-  await g.advance();
-  expect(g.hand()).toEqual(advanceStreet(preflop));
+  await g.act('call'); await g.act('call');
+  const beforePreflopClose = g.hand();
+  const afterPreflopClose = applyHandAction(beforePreflopClose, { playerId: beforePreflopClose.currentActorId!, type: 'check' });
+  await g.act('check');
+  expect(g.hand()).toEqual(advanceStreet(afterPreflopClose));
+  expect(g.hand().street).toBe('flop');
+  expect(g.hand().pot).toBe(60);
   expect(g.hand().players.every(p => p.roundCommitted === 0 && p.totalCommitted === 20)).toBe(true);
   expect(g.hand().currentRound.pot).toBe(60); // Not the sum of current-street contributions.
   expect(g.actorIndex()).toBe(1);
@@ -56,14 +56,13 @@ it('plays a complete hand over Socket.IO through every street and river showdown
   await g.act('raise', 100);
   expect(g.hand()).toEqual(applyHandAction(flop, { playerId: flop.currentActorId!, type: 'raise', amount: 100 }));
   await g.act('call'); await g.act('call');
-  for (const street of ['turn', 'river']) {
-    await g.advance();
+  for (const street of ['turn', 'river'] as const) {
     expect(g.hand().street).toBe(street);
     expect(g.hand().pot).toBe(360);
     expect(g.hand().players.every(p => p.roundCommitted === 0 && p.baseCommitted === 120)).toBe(true);
     await g.act('check'); await g.act('check'); await g.act('check');
   }
-  const final = await g.advance();
+  const final = await g.sync();
   expect(final.game!.hand).toMatchObject({ street: 'river', status: 'showdown', pot: 360, currentActorId: null, playersToAct: [] });
   expect(final.game!.hand.players.every(p => p.chips === 880 && p.totalCommitted === 120 && p.roundCommitted === 0)).toBe(true);
   g.assertConserved();
@@ -103,7 +102,8 @@ it('persists folds, refunds uncalled bets and blocks actions after the last oppo
 it('preserves folded players across streets without giving them a turn', async () => {
   await g.setup(4);
   const foldedId = g.hand().currentActorId!;
-  await g.act('fold'); await g.finishRound(); await g.advance();
+  await g.act('fold'); await g.finishRound();
+  expect(g.hand().street).toBe('flop');
   expect(g.hand().players.find(p => p.id === foldedId)?.folded).toBe(true);
   expect(g.hand().playersToAct).not.toContain(foldedId);
   const i = g.admissions.findIndex(a => a.credentials.playerId === foldedId);
@@ -131,7 +131,8 @@ it('preserves a short all-in raise without reopening betting (engine-origin uneq
   expect(g.hand().currentRound).toMatchObject({ currentBet: 120, minRaiseIncrement: 80 });
   await g.act('call');
   expect(await g.command(0, { type: 'game-action', action: 'raise', amount: 200 })).toMatchObject({ error: { code: 'ACTION_NOT_REOPENED' } });
-  await g.act('call'); await g.advance();
+  await g.act('call');
+  expect(g.hand().street).toBe('flop');
   expect(g.hand().players[1].isAllIn).toBe(true);
   expect(g.hand().playersToAct).not.toContain(g.admissions[1].credentials.playerId);
   expect(await g.command(1, { type: 'game-action', action: 'call' })).toMatchObject({ error: { code: 'OUT_OF_TURN' } });
@@ -170,16 +171,18 @@ it.each(['fold', 'check', 'call', 'raise', 'all-in'])('deduplicates %s and rejec
   g.assertConserved();
 });
 
-it('deduplicates advances without skipping streets and rejects early or non-admin advances', async () => {
+it('deduplicates street-closing transitions without skipping streets and rejects invalid manual advances', async () => {
   await g.setup();
   expect(await g.command(0, { type: 'advance-street' })).toMatchObject({ error: { code: 'CANNOT_ADVANCE_STREET' } });
-  await g.finishRound();
+  await g.act('call');
+  await g.act('call');
   expect(await g.command(1, { type: 'advance-street' })).toMatchObject({ error: { code: 'FORBIDDEN' } });
   const noAdmin = await g.connect({ ...g.host.credentials, adminToken: undefined });
   expect(await g.send(noAdmin, await g.envelope({ type: 'advance-street' }, noAdmin))).toMatchObject({ error: { code: 'FORBIDDEN' } });
-  const input = await g.envelope({ type: 'advance-street' });
-  const first = ok(await g.send(g.sockets[0], input));
-  expect(ok(await g.send(g.sockets[0], input))).toEqual(first);
+  const closingSocket = g.sockets[g.actorIndex()];
+  const input = await g.envelope({ type: 'game-action', action: 'check' }, closingSocket);
+  const first = ok(await g.send(closingSocket, input));
+  expect(ok(await g.send(closingSocket, input))).toEqual(first);
   expect(g.hand().street).toBe('flop');
   expect(await g.command(0, { type: 'advance-street' })).toMatchObject({ error: { code: 'CANNOT_ADVANCE_STREET' } });
 });
