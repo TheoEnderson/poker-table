@@ -50,6 +50,11 @@ export function VirtualTable({
         <div className="table-status-meta">
           <StreetIndicator game={game} />
           <BlindsIndicator game={game} />
+          {room.config.deckMode === 'virtual' && (
+            <span className="deck-mode-badge" data-testid="virtual-deck-badge">
+              Cartas virtuais
+            </span>
+          )}
         </div>
 
         {/* Banner do Jogador da Vez */}
@@ -79,7 +84,13 @@ export function VirtualTable({
 
       {/* 2. Nível Central: Feltro da Mesa com Pote, Cartas Comunitárias e Assentos */}
       <section
-        className={`virtual-table-arena ${seatedPlayers.length >= 7 ? 'seats-dense' : ''}`}
+        className={[
+          'virtual-table-arena',
+          seatedPlayers.length >= 7 ? 'seats-dense' : '',
+          room.config.deckMode === 'virtual' ? 'table-mode-virtual' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-label="Feltro da mesa com jogadores"
       >
         <TableFelt />
@@ -88,11 +99,6 @@ export function VirtualTable({
         <div className="table-center-content">
           <TablePot game={game} />
           <CommunityCards game={game} />
-          {room.config.deckMode === 'virtual' && (
-            <span className="deck-mode-badge" data-testid="virtual-deck-badge">
-              Cartas virtuais
-            </span>
-          )}
         </div>
 
         {/* Perímetro da Mesa: Assentos dos Jogadores */}

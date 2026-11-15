@@ -699,6 +699,7 @@
     border-radius: 12px;
     padding: 8px 12px;
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
@@ -717,8 +718,9 @@
   }
   .table-status-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px 8px;
   }
   .table-top-status-bar .turn-banner {
     margin: 0;
@@ -734,6 +736,8 @@
     }
     .table-status-meta {
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
       width: 100%;
     }
     .table-top-status-bar .turn-banner {
@@ -754,11 +758,17 @@
     overflow: visible;
     box-sizing: border-box;
   }
+  .virtual-table-arena.table-mode-virtual {
+    margin-top: 48px;
+  }
   .virtual-table-arena.seats-dense {
     aspect-ratio: 1 / 1.25;
     min-height: 440px;
     max-height: 580px;
     margin: 20px auto 16px;
+  }
+  .virtual-table-arena.seats-dense.table-mode-virtual {
+    margin-top: 48px;
   }
   @media (max-width: 360px) {
     .virtual-table-arena {
@@ -768,11 +778,20 @@
       margin: 20px auto 4px;
       border-radius: 20px;
     }
+    .virtual-table-arena.table-mode-virtual {
+      aspect-ratio: 1 / 1.06;
+      min-height: 315px;
+      max-height: 345px;
+      margin-top: 46px;
+    }
     .virtual-table-arena.seats-dense {
       aspect-ratio: 1 / 1.18;
       min-height: 340px;
       max-height: 380px;
       margin: 20px auto 4px;
+    }
+    .virtual-table-arena.seats-dense.table-mode-virtual {
+      margin-top: 46px;
     }
   }
   @media (min-width: 768px) {
@@ -781,7 +800,13 @@
       min-height: 440px;
       max-height: 580px;
     }
-    .virtual-table-arena.seats-dense {
+    .virtual-table-arena.table-mode-virtual {
+      aspect-ratio: 1.9 / 1;
+      min-height: 370px;
+      max-height: 440px;
+    }
+    .virtual-table-arena.seats-dense,
+    .virtual-table-arena.seats-dense.table-mode-virtual {
       aspect-ratio: 16 / 10;
       min-height: 460px;
       max-height: 600px;
@@ -793,7 +818,14 @@
       min-height: 480px;
       max-height: 620px;
     }
-    .virtual-table-arena.seats-dense {
+    .virtual-table-arena.table-mode-virtual {
+      aspect-ratio: 2.5 / 1;
+      min-height: 340px;
+      max-height: 375px;
+      margin-top: 44px;
+    }
+    .virtual-table-arena.seats-dense,
+    .virtual-table-arena.seats-dense.table-mode-virtual {
       aspect-ratio: 16 / 9;
       min-height: 520px;
       max-height: 640px;
@@ -1514,6 +1546,16 @@
   }
   /* Posicionamento vetorial da aposta em direção ao centro */
   .player-bet-badge.zone-south, .pod-bet-badge.zone-south { top: -14px; left: 50%; transform: translate(-50%, -100%); }
+  .seat-pod-wrapper:has(.pod-hole-cards-virtual) .player-bet-badge.zone-south,
+  .seat-pod-wrapper:has(.pod-hole-cards-virtual) .pod-bet-badge.zone-south {
+    top: -46px;
+  }
+  @media (max-width: 360px) {
+    .seat-pod-wrapper:has(.pod-hole-cards-virtual) .player-bet-badge.zone-south,
+    .seat-pod-wrapper:has(.pod-hole-cards-virtual) .pod-bet-badge.zone-south {
+      top: -38px;
+    }
+  }
   .player-bet-badge.zone-north, .pod-bet-badge.zone-north { bottom: -14px; left: 50%; transform: translate(-50%, 100%); }
   .player-bet-badge.zone-west, .player-bet-badge.zone-south-west, .player-bet-badge.zone-north-west,
   .pod-bet-badge.zone-west, .pod-bet-badge.zone-south-west, .pod-bet-badge.zone-north-west { right: -8px; top: 50%; transform: translate(100%, -50%); }
@@ -1738,6 +1780,11 @@
     padding: 2px 7px;
     border-radius: 6px;
   }
+  .my-status-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
   .my-status-body {
     display: flex;
     justify-content: space-between;
@@ -1794,6 +1841,9 @@
 
   /* Future Action Dock */
   .future-action-dock {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -1801,6 +1851,8 @@
     text-align: center;
     box-sizing: border-box;
     margin-top: 4px;
+    color: inherit;
+    font-size: inherit;
   }
   .dock-turn {
     background: #09261a;
@@ -2044,6 +2096,9 @@
 
   /* Action Dock Funcional (Etapa 4B) */
   .action-dock {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     background: var(--bg-surface);
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -2051,6 +2106,8 @@
     text-align: center;
     box-sizing: border-box;
     margin-top: 4px;
+    color: inherit;
+    font-size: inherit;
   }
   .action-dock-active {
     position: fixed;
@@ -2061,6 +2118,10 @@
     max-width: 620px;
     width: 100%;
     z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     background: rgba(18, 30, 24, 0.96);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--emerald);
@@ -2085,6 +2146,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    min-width: 0;
   }
   .action-dock-note {
     margin: 0;
@@ -2100,8 +2163,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 8px;
+    width: 100%;
   }
   .action-btn {
+    min-width: 0;
     min-height: 48px;
     border-radius: 10px;
     font-size: 0.88rem;
@@ -3247,15 +3312,15 @@
   .deck-mode-badge {
     display: inline-flex;
     align-items: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
     letter-spacing: 0.03em;
     color: var(--gold);
-    background: rgba(20, 31, 26, 0.85);
-    border: 1px solid rgba(226, 188, 115, 0.45);
-    margin-top: 4px;
+    background: rgba(15, 25, 20, 0.85);
+    border: 1px solid rgba(226, 188, 115, 0.38);
+    white-space: nowrap;
   }
 
   .community-cards-virtual {
@@ -3363,20 +3428,45 @@
     font-size: 0.9em;
   }
 
-  .pod-hole-cards-virtual {
+  .pod-hole-cards.pod-hole-cards-virtual {
+    top: auto;
+    bottom: calc(100% + 4px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 3px;
   }
 
+  .seats-dense .pod-hole-cards.pod-hole-cards-virtual {
+    top: auto;
+    bottom: calc(100% + 3px);
+  }
+
   .my-hole-cards-section {
-    margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  @media (min-width: 640px) {
+    .my-status-content:has(.my-hole-cards-section) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+    }
+    .my-status-content:has(.my-hole-cards-section) .my-status-body {
+      min-width: 0;
+    }
+    .my-status-content:has(.my-hole-cards-section) .my-hole-cards-section {
+      padding-top: 0;
+      border-top: none;
+      padding-left: 16px;
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      min-width: 0;
+    }
   }
 
   .my-hole-cards-meta {
@@ -3450,30 +3540,6 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-  }
-
-  .settlement-board-preview {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 10px;
-    border-radius: 10px;
-    background: rgba(13, 20, 17, 0.45);
-    margin-bottom: 10px;
-  }
-
-  .settlement-board-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
-
-  .settlement-board-cards {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
   }
 
   @media (max-width: 360px) {

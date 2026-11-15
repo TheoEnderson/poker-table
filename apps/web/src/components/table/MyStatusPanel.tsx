@@ -59,111 +59,113 @@ export function MyStatusPanel({
         </span>
       </div>
 
-      <div className="my-status-body">
-        <div className="my-stack-display">
-          {isSpectator ? (
-            <span className="spectator-desc">
-              Você está acompanhando a partida como espectador.
-            </span>
-          ) : (
-            <>
-              <ChipAmount value={currentChips} size="lg" className="my-stack-amount" />
-              <div className="my-bet-info-row">
-                {isWaitingForNextHand ? (
-                  <span className="my-committed-tag tabular-nums">
-                    {game.status === 'game-complete'
-                      ? `Entrará na nova partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`
-                      : `Entrará na partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`}
-                  </span>
-                ) : (
-                  <>
-                    {meInHand && !isSettled && myRoundCommitted > 0 && (
-                      <span className="my-committed-tag tabular-nums">
-                        Sua aposta na street: {myRoundCommitted}
-                      </span>
-                    )}
-                    {callNeeded > 0 && (
-                      <span className="my-call-needed-tag tabular-nums">
-                        Para igualar: {callNeeded}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+      <div className="my-status-content">
+        <div className="my-status-body">
+          <div className="my-stack-display">
+            {isSpectator ? (
+              <span className="spectator-desc">
+                Você está acompanhando a partida como espectador.
+              </span>
+            ) : (
+              <>
+                <ChipAmount value={currentChips} size="lg" className="my-stack-amount" />
+                <div className="my-bet-info-row">
+                  {isWaitingForNextHand ? (
+                    <span className="my-committed-tag tabular-nums">
+                      {game.status === 'game-complete'
+                        ? `Entrará na nova partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`
+                        : `Entrará na partida com ${room.config.startingChips.toLocaleString('pt-BR')} fichas.`}
+                    </span>
+                  ) : (
+                    <>
+                      {meInHand && !isSettled && myRoundCommitted > 0 && (
+                        <span className="my-committed-tag tabular-nums">
+                          Sua aposta na street: {myRoundCommitted}
+                        </span>
+                      )}
+                      {callNeeded > 0 && (
+                        <span className="my-call-needed-tag tabular-nums">
+                          Para igualar: {callNeeded}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
-        <div className="my-state-message">
-          {isSpectator ? (
-            <span className="state-pill state-spectator">Apenas observando</span>
-          ) : game.status === 'game-complete' ? (
-            <span className="state-pill state-complete" data-testid={isWaitingForNextHand ? 'waiting-reset-game' : undefined}>
-              {isWaitingForNextHand ? 'Aguardando nova partida' : 'Partida encerrada'}
-            </span>
-          ) : isWaitingForNextHand ? (
-            <span className="state-pill state-waiting state-waiting-next-hand" data-testid="waiting-next-hand">
-              Aguardando a próxima mão
-            </span>
-          ) : isEliminated ? (
-            <span className="state-pill state-eliminated">Você foi eliminado desta partida</span>
-          ) : game.status === 'hand-settled' ? (
-            <span className="state-pill state-settled">Mão encerrada</span>
-          ) : isFolded ? (
-            <span className="state-pill state-folded">Você desistiu desta mão (Fold)</span>
-          ) : isAllIn ? (
-            <span className="state-pill state-allin">Você está em All-in</span>
-          ) : isMyTurn ? (
-            <span className="state-pill state-turn state-turn-self">Sua vez</span>
-          ) : game.hand.status === 'showdown' ? (
-            <span className="state-pill state-showdown">Showdown · Cartas na mesa</span>
-          ) : game.hand.status === 'hand_ended_by_fold' ? (
-            <span className="state-pill state-ended">Mão encerrada</span>
-          ) : (
-            <span className="state-pill state-waiting">
-              Aguardando {currentActor ? currentActor.name : 'jogada'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {meInHand?.holeCards && (
-        <div className="my-hole-cards-section" data-testid="my-hole-cards">
-          <div className="my-hole-cards-meta">
-            <span className="my-hole-cards-title">Suas cartas</span>
-            {meInHand.handEvaluation && (
-              <span className="hand-eval-pill" data-testid="my-hand-evaluation">
-                {meInHand.handEvaluation.label}
+          <div className="my-state-message">
+            {isSpectator ? (
+              <span className="state-pill state-spectator">Apenas observando</span>
+            ) : game.status === 'game-complete' ? (
+              <span className="state-pill state-complete" data-testid={isWaitingForNextHand ? 'waiting-reset-game' : undefined}>
+                {isWaitingForNextHand ? 'Aguardando nova partida' : 'Partida encerrada'}
+              </span>
+            ) : isWaitingForNextHand ? (
+              <span className="state-pill state-waiting state-waiting-next-hand" data-testid="waiting-next-hand">
+                Aguardando a próxima mão
+              </span>
+            ) : isEliminated ? (
+              <span className="state-pill state-eliminated">Você foi eliminado desta partida</span>
+            ) : game.status === 'hand-settled' ? (
+              <span className="state-pill state-settled">Mão encerrada</span>
+            ) : isFolded ? (
+              <span className="state-pill state-folded">Você desistiu desta mão (Fold)</span>
+            ) : isAllIn ? (
+              <span className="state-pill state-allin">Você está em All-in</span>
+            ) : isMyTurn ? (
+              <span className="state-pill state-turn state-turn-self">Sua vez</span>
+            ) : game.hand.status === 'showdown' ? (
+              <span className="state-pill state-showdown">Showdown · Cartas na mesa</span>
+            ) : game.hand.status === 'hand_ended_by_fold' ? (
+              <span className="state-pill state-ended">Mão encerrada</span>
+            ) : (
+              <span className="state-pill state-waiting">
+                Aguardando {currentActor ? currentActor.name : 'jogada'}
               </span>
             )}
           </div>
-          <div className="my-hole-cards-row">
-            <div className="my-hole-cards-pair">
-              <PlayingCard
-                card={cardsHidden ? undefined : meInHand.holeCards[0]}
-                faceDown={cardsHidden}
-                size="lg"
-                testId="my-hole-card-0"
-              />
-              <PlayingCard
-                card={cardsHidden ? undefined : meInHand.holeCards[1]}
-                faceDown={cardsHidden}
-                size="lg"
-                testId="my-hole-card-1"
-              />
-            </div>
-            <button
-              type="button"
-              className="hole-cards-toggle-btn"
-              aria-pressed={cardsHidden}
-              onClick={() => setCardsHidden(prev => !prev)}
-              data-testid="toggle-hole-cards"
-            >
-              {cardsHidden ? 'Mostrar cartas' : 'Ocultar cartas'}
-            </button>
-          </div>
         </div>
-      )}
+
+        {meInHand?.holeCards && (
+          <div className="my-hole-cards-section" data-testid="my-hole-cards">
+            <div className="my-hole-cards-meta">
+              <span className="my-hole-cards-title">Suas cartas</span>
+              {meInHand.handEvaluation && (
+                <span className="hand-eval-pill" data-testid="my-hand-evaluation">
+                  {meInHand.handEvaluation.label}
+                </span>
+              )}
+            </div>
+            <div className="my-hole-cards-row">
+              <div className="my-hole-cards-pair">
+                <PlayingCard
+                  card={cardsHidden ? undefined : meInHand.holeCards[0]}
+                  faceDown={cardsHidden}
+                  size="lg"
+                  testId="my-hole-card-0"
+                />
+                <PlayingCard
+                  card={cardsHidden ? undefined : meInHand.holeCards[1]}
+                  faceDown={cardsHidden}
+                  size="lg"
+                  testId="my-hole-card-1"
+                />
+              </div>
+              <button
+                type="button"
+                className="hole-cards-toggle-btn"
+                aria-pressed={cardsHidden}
+                onClick={() => setCardsHidden(prev => !prev)}
+                data-testid="toggle-hole-cards"
+              >
+                {cardsHidden ? 'Mostrar cartas' : 'Ocultar cartas'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
